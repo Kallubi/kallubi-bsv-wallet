@@ -1,0 +1,13 @@
+Kallubi Wallet – Linux sandbox
+
+Preferred start:
+  npm start
+
+If Electron aborts on chrome-sandbox:
+  sudo chown root:root node_modules/electron/dist/chrome-sandbox
+  sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+  echo 1 | sudo tee /proc/sys/kernel/unprivileged_userns_clone
+  echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+
+Fallback only:
+  npm run start:linux-nosandbox
