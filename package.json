@@ -1,0 +1,53 @@
+{
+  "name": "kallubi-bsv-wallet",
+  "version": "1.0.0",
+  "description": "Kallubi BSV Wallet",
+  "main": "main.js",
+  "author": "Kallubi",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "pack:linux": "electron-builder --linux AppImage",
+    "pack:win": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "@bsv/sdk": "^1.0.0",
+    "@scure/bip32": "^2.3.0",
+    "bip39": "^3.1.0",
+    "jsqr": "^1.4.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "de.kallubi.bsv.wallet",
+    "productName": "Kallubi BSV Wallet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!**/*.md",
+      "!**/testnet-wallet.json",
+      "!**/wallets/**"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Finance",
+      "artifactName": "Kallubi-BSV-Wallet-${version}-linux-x64.${ext}",
+      "icon": "logo.png"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "Kallubi-BSV-Wallet-${version}-win-x64.${ext}",
+      "icon": "logo.png"
+    }
+  }
+}

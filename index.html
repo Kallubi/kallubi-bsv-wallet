@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kallubi Wallet</title>
+<style>
+  :root {
+    --bg:#06060a; --panel:#101018; --card:#16161f; --line:#2a2a38;
+    --text:#f3f3f7; --muted:#9a9aad; --gold:#d4a017; --gold2:#f0c14b;
+    --danger:#e74c3c; --ok:#2ecc71;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);
+    background:
+      radial-gradient(900px 480px at 12% -15%,#2a1c08 0%,transparent 55%),
+      radial-gradient(700px 400px at 90% 10%,#12101a 0%,transparent 50%),
+      var(--bg);
+    min-height:100vh}
+  .app{display:flex;min-height:100vh}
+  .side{width:210px;padding:18px 14px;border-right:1px solid var(--line);
+    background:rgba(8,8,12,.92);display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .brand img{width:42px;height:42px;border-radius:12px;object-fit:cover;box-shadow:0 0 20px rgba(212,160,23,.25)}
+  .brand b{font-size:15px;letter-spacing:-.01em}.brand .g{color:var(--gold2)}
+  .pill{width:fit-content;font-size:11px;font-weight:700;color:var(--gold2);
+    border:1px solid rgba(212,160,23,.55);border-radius:999px;padding:5px 11px;
+    background:linear-gradient(90deg,#2a200a,#14100a)}
+  .status{font-size:10px;color:var(--muted);line-height:1.45}
+  .status .ok{color:var(--ok)}.status .bad{color:var(--danger)}
+  .lang{display:flex;gap:6px}
+  button,.btn{border:1px solid var(--line);background:var(--card);color:var(--text);
+    border-radius:11px;padding:10px 12px;cursor:pointer;font:inherit;transition:border-color .15s,background .15s,opacity .15s}
+  button:hover,.btn:hover{border-color:#3a3a4a}
+  button:disabled,.btn:disabled{opacity:.45;cursor:not-allowed}
+  .lang button.active,.nav button.active{border-color:var(--gold);color:var(--gold2);
+    background:linear-gradient(90deg,#3a2a0a,#15120a)}
+  .nav{display:flex;flex-direction:column;gap:5px;flex:1;margin-top:6px}
+  .nav button{text-align:left}
+  .foot{font-size:10px;color:var(--muted);line-height:1.35;margin-top:8px}
+  .main{flex:1;padding:28px 32px;overflow:auto}
+  h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;font-weight:750}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .card{background:linear-gradient(180deg,rgba(22,22,30,.95),rgba(14,14,20,.98));
+    border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;
+    box-shadow:0 16px 40px rgba(0,0,0,.35)}
+  .label{font-size:11px;letter-spacing:.08em;color:var(--gold2);font-weight:700;margin-bottom:10px}
+  label{font-size:13px;color:var(--muted)}
+  input,textarea,select{width:100%;background:#0b0b11;border:1px solid var(--line);color:var(--text);
+    border-radius:11px;padding:12px;margin:6px 0 12px;font:inherit;user-select:text;-webkit-user-select:text}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(212,160,23,.55)}
+  textarea{min-height:70px;resize:vertical}
+  .btn.primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#111;border:none;font-weight:700}
+  .btn.primary:hover:not(:disabled){filter:brightness(1.05)}
+  .btn.danger{border-color:rgba(231,76,60,.5);color:#ff8b7c;background:transparent}
+  .btn.ghost{background:transparent}
+  .btn.small{padding:5px 9px;font-size:12px}
+  .btn.fee.active{border-color:var(--gold);color:var(--gold2)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .err{color:var(--danger);font-size:13px;margin-top:6px;white-space:pre-wrap}
+  .ok{color:var(--ok);font-size:13px}
+  .ok.flash{animation:pulseOk .8s ease}
+  @keyframes pulseOk{0%{opacity:.4}50%{opacity:1}100%{opacity:1}}
+  .hidden{display:none!important}
+  .wallet-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,background .15s}
+  .wallet-item:hover{border-color:#3d3d50}
+  .wallet-item.active{border-color:var(--gold);
+    box-shadow:0 0 0 1px rgba(212,160,23,.3),0 10px 28px rgba(0,0,0,.35);
+    background:linear-gradient(180deg,#1c1810,#12100c)}
+  .wallet-item .name{font-weight:700;font-size:14px}
+  .wallet-item .addr,.wallet-item .note{color:var(--muted);font-size:11px;word-break:break-all;margin-top:3px}
+  .empty-wallets{text-align:center;padding:18px 12px;color:var(--muted);font-size:13px;line-height:1.45;white-space:pre-line}
+  .balance{font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+  .muted{color:var(--muted);font-size:13px}
+  .selectable{user-select:text;-webkit-user-select:text;word-break:break-all}
+  .warn{border:1px solid rgba(212,160,23,.4);background:rgba(212,160,23,.07);
+    border-radius:12px;padding:10px 12px;font-size:12px;color:var(--gold2);margin-bottom:14px}
+  .pw-wrap{position:relative}
+  .pw-wrap input{padding-right:72px}
+  .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;padding:4px 8px;border-radius:8px}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px)}
+  .modal{width:min(460px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;max-height:90vh;overflow:auto;
+    box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .modal h2{margin:0 0 8px;font-size:18px}
+  .hist-item{border-bottom:1px solid var(--line);padding:10px 0;font-size:13px}
+  .hist-item:last-child{border-bottom:0}
+  .hist-item a{color:var(--gold2);text-decoration:none}
+  .recv-row{display:grid;grid-template-columns:1fr 110px 88px 36px;gap:8px;margin-bottom:8px;align-items:center}
+  .recv-row input,.recv-row select{margin:0}
+  .recv-row select{background:#0b0b11;border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit}
+  .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:11px;cursor:pointer;margin:2px 4px 2px 0;color:var(--muted)}
+  .chip:hover{border-color:var(--gold);color:var(--gold2)}
+  #qr img{background:#fff;border-radius:10px}
+  .sum-line{font-size:13px;margin:4px 0;word-break:break-all}
+  #viewLock{max-width:460px;margin:0 auto;padding-top:8px}
+  #viewLock .hero{text-align:center;margin-bottom:18px}
+  #viewLock .hero h1{font-size:30px}
+  #viewLock .hero .sub{margin-bottom:0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:14px 0 4px}
+  .seg button{border:0;border-radius:0;background:transparent;min-width:120px;padding:10px 14px}
+  .seg button.active{background:linear-gradient(180deg,#3a2a0a,#1a1408);color:var(--gold2)}
+  .lock-actions{display:flex;gap:8px;margin-top:4px}
+  .lock-actions .btn.primary{flex:1}
+  .secondary-row{justify-content:center;margin-top:4px}
+  .hero-bal{text-align:center;padding:22px 16px 18px}
+  .hero-bal .balance{margin:6px 0 4px}
+  .hero-bal .fiat{font-size:14px;color:var(--muted)}
+  .compact-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:900px){.compact-grid{grid-template-columns:1fr}}
+  .addr-line{font-size:12px;word-break:break-all;color:var(--muted);margin:6px 0 10px}
+/* disc-kde-fix */
+#discOk{min-height:48px;min-width:220px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="logo.png" alt="K" onerror="this.style.display='none'" />
+      <b>Kallubi <span class="g">Wallet</span></b>
+    </div>
+    <div class="pill" id="netPill">● MAINNET</div>
+    <div class="status">
+      <div id="stApi">API: —</div>
+      <div id="stPrice">Price: —</div>
+    </div>
+    <div class="lang">
+      <button type="button" id="btnDE">DE</button>
+      <button type="button" id="btnEN" class="active">EN</button>
+    </div>
+    <nav class="nav hidden" id="navApp">
+      <button type="button" data-view="overview" class="active">Overview</button>
+      <button type="button" data-view="receive">Receive</button>
+      <button type="button" data-view="send">Send</button>
+      <button type="button" data-view="history">History</button>
+      <button type="button" data-view="timelock">Timelock</button>
+      <button type="button" data-view="backup">Backup</button>
+      <button type="button" id="btnLogout">Log out</button>
+    </nav>
+    <div class="foot">Independent · no warranty · use at your own risk · not BSV Association / WhatsOnChain</div>
+  </aside>
+
+  <main class="main">
+    <section id="viewLock">
+      <div class="hero">
+        <h1>Kallubi Wallet</h1>
+        <div class="sub" id="tLockSub">Local encrypted wallets · Mainnet & Testnet</div>
+        <div class="seg">
+          <button type="button" id="btnNetMain" class="active">Mainnet</button>
+          <button type="button" id="btnNetTest">Testnet</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label" id="tWallets">WALLETS</div>
+        <div id="walletList"></div>
+        <label id="tPw">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwUnlock" placeholder="••••••••" />
+          <button type="button" class="btn pw-toggle" data-target="pwUnlock">Show</button>
+        </div>
+        <div class="lock-actions">
+          <button type="button" class="btn primary" id="btnUnlock" disabled>Unlock</button>
+          <button type="button" class="btn danger" id="btnDeleteWallet">Delete</button>
+        </div>
+        <div class="err" id="lockErr"></div>
+      </div>
+      <div class="row secondary-row">
+        <button type="button" class="btn" id="btnNew">New wallet</button>
+        <button type="button" class="btn" id="btnSeed">From seed</button>
+        <button type="button" class="btn" id="btnWif">From key</button>
+        <button type="button" class="btn ghost hidden" id="btnBackList">Back</button>
+      </div>
+      <div class="card hidden" id="formNew" style="margin-top:12px">
+        <div class="label">NEW WALLET</div>
+        <label id="tName">Name</label><input id="newName" />
+        <label id="tPwNew">Password (min. 8)</label>
+        <div class="pw-wrap"><input type="password" id="newPw" /><button type="button" class="btn pw-toggle" data-target="newPw">Show</button></div>
+        <label id="tPwNew2">Confirm password</label>
+        <div class="pw-wrap"><input type="password" id="newPw2" /><button type="button" class="btn pw-toggle" data-target="newPw2">Show</button></div>
+        <label id="tBip">13th word (optional passphrase)</label>
+        <div class="pw-wrap"><div class="pw-wrap"><input type="password" id="newBip" /> <button type="button" class="btn small" id="btnPaste_newBip">Paste</button></div><button type="button" class="btn pw-toggle" data-target="newBip">Show</button></div>
+        <label id="tNewDeriv">Derivation</label>
+        <select id="newMode">
+          <option value="kallubi">Kallubi (original)</option>
+          <option value="bip44">BIP44 / path</option>
+        </select>
+        <label id="tNewPath">Path (BIP44)</label>
+        <select id="newPathPreset" disabled>
+          <option value="m/44'/0'/0'/0/0">m/44'/0'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0">m/44'/236'/0'/0/0</option>
+          <option value="custom">Custom…</option>
+        </select>
+        <input id="newPathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
+        <button type="button" class="btn primary" id="btnGenSeed">Generate seed</button>
+        <div id="seedPreview" class="muted selectable" style="margin:8px 0"></div>
+        <button type="button" class="btn small" id="btnCopySeed">Copy seed</button>
+        <label class="row"><input type="checkbox" id="seedConfirm" /> <span id="tSeedOk">I saved the seed offline</span></label>
+        <button type="button" class="btn primary" id="btnSaveNew">Save wallet</button>
+        <div class="err" id="newErr"></div>
+      </div>
+            <div class="card hidden" id="formSeed" style="margin-top:12px">
+        <div class="label" id="tFromSeed">FROM SEED</div>
+        <label id="tName2">Name</label><input id="restoreName" />
+        <label id="tMnemonic">12 words</label>
+        <textarea id="restoreMnemonic" placeholder="word1 word2 ..."></textarea>
+        <label id="tBip2">13th word (optional passphrase)</label>
+        <div class="pw-wrap"><div class="pw-wrap"><input type="password" id="restoreBip" /> <button type="button" class="btn small" id="btnPaste_restoreBip">Paste</button></div><button type="button" class="btn pw-toggle" data-target="restoreBip">Show</button></div>
+        <label id="tDeriv">Derivation</label>
+        <select id="restoreMode">
+          <option value="kallubi">Kallubi (original)</option>
+          <option value="bip44">BIP44 / path</option>
+        </select>
+        <label id="tPath">Path (BIP44)</label>
+        <select id="restorePathPreset">
+          <option value="m/44'/0'/0'/0/0">Centi (BSV) · m/44'/0'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0">m/44'/0'/0'/0/0 (common)</option>
+          <option value="m/44'/236'/0'/0/0">m/44'/236'/0'/0/0 (BSV coin type)</option>
+          <option value="m/44'/0'/0'/0/1">m/44'/0'/0'/0/1</option>
+          <option value="m/0'/0/0">m/0'/0/0</option>
+          <option value="custom">Custom…</option>
+        </select>
+        <input id="restorePathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
+        <label id="tPwRest">Password (min. 8)</label>
+        <div class="pw-wrap"><input type="password" id="restorePw" /><button type="button" class="btn pw-toggle" data-target="restorePw">Show</button></div>
+        <label id="tPwRest2">Confirm password</label>
+        <div class="pw-wrap"><input type="password" id="restorePw2" /><button type="button" class="btn pw-toggle" data-target="restorePw2">Show</button></div>
+        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn" id="btnScanSeed">Auto-Scan paths</button>
+          <button type="button" class="btn primary" id="btnRestore">Restore</button>
+        </div>
+        <div id="scanResults" class="muted" style="margin-top:10px;max-height:220px;overflow:auto;font-size:12px"></div>
+        <div class="err" id="seedErr"></div>
+      </div>
+    
+      <div class="card hidden" id="formWif" style="margin-top:12px">
+        <div class="label">FROM WIF / PRIVATE KEY</div>
+        <p class="muted">One key = one address. No seed, no path scan.</p>
+        <label>Name</label>
+        <input id="wifName" />
+        <label>WIF or 64-char hex</label>
+        <div class="pw-wrap"><input type="password" id="wifKey" autocomplete="off" /><button type="button" class="btn pw-toggle" data-target="wifKey">Show</button></div>
+        <label>Password (min. 8)</label>
+        <div class="pw-wrap"><input type="password" id="wifPw" /><button type="button" class="btn pw-toggle" data-target="wifPw">Show</button></div>
+        <label>Confirm password</label>
+        <div class="pw-wrap"><input type="password" id="wifPw2" /><button type="button" class="btn pw-toggle" data-target="wifPw2">Show</button></div>
+        <button type="button" class="btn primary" id="btnDoWif">Import key</button>
+        <div class="err" id="wifErr"></div>
+      </div>
+
+</section>
+
+    <section id="viewApp" class="hidden">
+      <div id="pageOverview">
+        <h1 id="tOverview">Overview</h1>
+        <div class="sub" id="tOverviewSub">Balance · address · note</div>
+        <div class="muted selectable" id="lastVia" style="margin:0 0 10px"></div>
+        <div class="warn" id="tMainWarn">MAINNET – real funds. Small amounts only.</div>
+        <div class="card hero-bal">
+          <div class="label" id="tSpendable">SPENDABLE</div>
+          <div class="balance" id="balSats">—</div>
+          <div class="fiat" id="balFiat"></div>
+          <div class="row" style="justify-content:center;margin-top:12px">
+            <button type="button" class="btn small" id="btnHideBal">Hide</button>
+            <button type="button" class="btn primary" id="btnRefresh">Refresh</button>
+          </div>
+        </div>
+        <div class="compact-grid">
+          <div class="card">
+            <div class="label" id="tPrice">BSV PRICE</div>
+            <div id="priceBox" style="font-size:20px;font-weight:700">—</div>
+          </div>
+          <div class="card">
+            <div class="label">AUTO-LOCK</div>
+            <input type="number" id="autoLockMin" value="10" min="0" style="margin:0;max-width:100%" />
+            <div class="muted" style="margin-top:6px;font-size:11px" id="tAutoHint">minutes · 0 = off</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label">ADDRESS</div>
+          <div class="muted" id="addrPath" style="font-size:12px;margin-top:4px"></div>
+          <div id="addrBox" class="addr-line selectable"></div>
+          <div class="row">
+            <button type="button" class="btn small" id="btnCopyAddrOverview">Copy</button>
+            <button type="button" class="btn small" id="btnExportQr">Export QR PNG</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label" id="tNote">WALLET NOTE</div>
+          <input id="walletNote" placeholder="e.g. Trading / Savings" />
+          <button type="button" class="btn primary" id="btnSaveNote">Save note</button>
+          <div class="ok" id="noteOk"></div>
+        </div>
+      </div>
+
+      <div id="pageReceive" class="hidden">
+        <h1 id="tReceive">Receive</h1>
+        <div class="card">
+          <div class="label">ADDRESS</div>
+          <div class="muted" id="addrPathReceive" style="font-size:12px;margin-top:4px"></div>
+          <div id="recvAddr" class="muted selectable" style="margin-bottom:10px"></div>
+          <div id="qr"></div>
+          <div class="row">
+            <button type="button" class="btn primary" id="btnCopyAddr">Copy</button>
+            <button type="button" class="btn" id="btnExportQr2">Export QR PNG</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pageSend" class="hidden">
+        <h1 id="tSend">Send</h1>
+        <div class="sub" id="tSendHint">Always BSV on-chain · unit only helps you type the amount</div>
+        <div class="card">
+          <div class="label" id="tRecent">RECENT</div>
+          <div id="recentBox" class="muted">—</div>
+        </div>
+        <div class="card">
+          <div class="label" id="tRecipients">RECIPIENTS</div>
+          <div id="recvList"></div>
+          <div class="row" style="margin-bottom:14px">
+            <button type="button" class="btn small" id="btnAddRecv">+ Recipient</button>
+          </div>
+          <div class="label" id="tQrLabel">QR image → first address</div>
+          <div class="row" style="margin-bottom:12px">
+            <button type="button" class="btn" id="btnPickQr">Choose image</button>
+            <span class="muted" id="qrFileName">No file chosen</span>
+          </div>
+          <input type="file" id="qrFile" accept="image/*" class="hidden" />
+          <div class="label" id="tFeeLabel">NETWORK FEE (sats)</div>
+          <div class="row" style="margin-bottom:8px">
+            <button type="button" class="btn fee" data-fee="300">Low</button>
+            <button type="button" class="btn fee active" data-fee="500">Normal</button>
+            <button type="button" class="btn fee" data-fee="1000">High</button>
+          </div>
+          <input type="number" id="sendFee" value="500" min="1" step="1" style="max-width:160px" />
+          <button type="button" class="btn primary" id="btnSend">Send</button>
+          <div class="err" id="sendErr"></div>
+          <div class="ok" id="sendOk"></div>
+        </div>
+      </div>
+
+      <div id="pageHistory" class="hidden">
+        <h1 id="tHistory">History</h1>
+        <div class="card" id="histBox"><div class="muted">—</div></div>
+        <button type="button" class="btn" id="btnHistRefresh">Refresh</button>
+      </div>
+
+      <div id="pageTimelock" class="hidden">
+        <h1 id="tTimelock">Timelock</h1>
+        <div class="sub" id="tTlSub">App-level only · not on-chain</div>
+        <div class="card">
+          <label>Amount (sats)</label>
+          <input type="number" id="tlSats" value="5000" min="1" step="1" />
+          <label>Hours</label>
+          <input type="number" id="tlHours" value="1" min="0.01" step="0.01" />
+          <button type="button" class="btn primary" id="btnTlLock">Lock</button>
+          <div class="err" id="tlErr"></div>
+        </div>
+        <div class="card">
+          <div class="label" id="tActiveLocks">ACTIVE LOCKS</div>
+          <div id="tlList" class="muted">—</div>
+          <button type="button" class="btn" id="btnTlRefresh">Refresh</button>
+        </div>
+      </div>
+
+      <div id="pageBackup" class="hidden">
+        <h1 id="tBackup">Backup</h1>
+        <div class="sub" id="tBackupSub">Seed first · then encrypted file</div>
+        <div class="card">
+          <div class="label" id="tSeedSection">1 · SEED</div>
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="backupPw" />
+            <button type="button" class="btn pw-toggle" data-target="backupPw">Show</button>
+          </div>
+          <button type="button" class="btn primary" id="btnShowSeed">Show seed</button>
+          <div id="backupSeed" class="muted selectable" style="margin-top:10px"></div>
+          <button type="button" class="btn small" id="btnCopyBackupSeed">Copy seed</button>
+          <div class="err" id="backupErr"></div>
+        </div>
+        <div class="card">
+          <div class="label" id="tExportTitle">2 · ENCRYPTED FILE</div>
+          <p class="muted" id="tExportHint">Copy the encrypted wallet file to Downloads (USB backup).</p>
+          <button type="button" class="btn primary" id="btnExportFile">Export encrypted file</button>
+          <div class="ok" id="exportOk"></div>
+          <div class="err" id="exportErr"></div>
+        </div>
+        <div class="card">
+          <div class="label" id="tImportTitle">3 · IMPORT FILE</div>
+          <p class="muted" id="tImportHint">Re-import an exported JSON (wallet password required).</p>
+          <div class="row">
+            <button type="button" class="btn" id="btnPickImport">Choose file</button>
+            <span class="muted" id="importFileName">No file chosen</span>
+          </div>
+          <input type="file" id="importFile" accept=".json,application/json" class="hidden" />
+          <label id="tImportName">Wallet name</label>
+          <input id="importName" placeholder="Imported wallet" />
+          <label id="tImportPw">Password of that wallet</label>
+          <div class="pw-wrap">
+            <input type="password" id="importPw" />
+            <button type="button" class="btn pw-toggle" data-target="importPw">Show</button>
+          </div>
+          <button type="button" class="btn primary" id="btnDoImport">Import</button>
+          <div class="err" id="importErr"></div>
+          <div class="ok" id="importOk"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-bg hidden" id="delModal">
+  <div class="modal">
+    <h2 id="delTitle">Delete wallet?</h2>
+    <p class="muted" id="delText">This cannot be undone. Without your 12-word seed (and 13th word if used), funds cannot be recovered.</p>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn danger" id="delYes">Delete permanently</button>
+      <button type="button" class="btn" id="delNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="sendModal">
+  <div class="modal">
+    <h2 id="sendModalTitle">Confirm send</h2>
+    <div id="sendModalBody"></div>
+    <p class="muted" id="sendChangeHint" style="margin-top:10px"></p>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn primary" id="sendYes">Confirm</button>
+      <button type="button" class="btn" id="sendNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="discModal">
+  <div class="modal">
+    <h2 id="discTitle">Disclaimer</h2>
+    <p class="muted" id="discText" style="white-space:pre-wrap"></p>
+    <p class="muted" id="discAccept">I understand and accept</p>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn primary" id="discOk">Continue</button>
+    </div>
+    <div class="err" id="discErr"></div>
+  </div>
+</div>
+
+<script>
+const store = require('./wallet-store.cjs')
+const core = require('./wallet-core.cjs')
+const timelock = require('./wallet-timelock.cjs')
+const QRCode = require('qrcode')
+const jsQR = require('jsqr')
+const fs = require('fs')
+const path = require('path')
+const os = require('os')
+const { clipboard, shell } = require('electron')
+
+let lang = 'en'
+let network = 'main'
+let selectedId = null
+let session = null
+let pendingSeed = null
+let hideBalance = false
+let priceUsd = null
+let autoTimer = null
+let pendingSend = null
+
+const RECENT_KEY = 'kallubi_recent_addrs'
+const DISC_KEY = 'kallubi_disclaimer_ok_v1'
+
+const I18N = {
+  de: {
+    unlock:'Entsperren', del:'Löschen', wallets:'WALLETS', pw:'Passwort',
+    neu:'Neue Wallet', seed:'Aus Seed', back:'Zurück', name:'Name',
+    pwNew:'Passwort (min. 8)', pw2:'Passwort bestätigen', bip:'13. Wort (optional)',
+    gen:'Seed erzeugen', seedOk:'Seed offline gesichert', save:'Wallet speichern',
+    fromSeed:'AUS SEED', words:'12 Wörter', restore:'Wiederherstellen',
+    overview:'Übersicht', receive:'Empfangen', send:'Senden', history:'Verlauf',
+    timelock:'Timelock', backup:'Backup', logout:'Abmelden', hide:'Verbergen', show:'Anzeigen',
+    price:'BSV-PREIS', spendable:'VERFÜGBAR', refresh:'Aktualisieren', copy:'Kopieren',
+    lock:'Sperren', active:'AKTIVE SPERREN', tlSub:'Nur in der App · nicht on-chain',
+    warn:'MAINNET – echtes Guthaben. Nur kleine Beträge.',
+    delTitle:'Wallet löschen?', delText:'Unwiderruflich. Ohne Seed (und 13. Wort) keine Wiederherstellung.',
+    delYes:'Endgültig löschen', delNo:'Abbrechen', showPw:'Zeigen', hidePw:'Verbergen',
+    sub:'Lokal verschlüsselte Wallets · Mainnet & Testnet',
+    hoursInvalid:'Stunden müssen > 0 sein', amountInvalid:'Betrag muss > 0 sein',
+    until:'bis', unlockable:'einlösbar', noLocks:'Keine aktiven Sperren', copySeed:'Seed kopieren',
+    note:'WALLET-NOTIZ', saveNote:'Notiz speichern',
+    sendHint:'Immer BSV on-chain · Einheit nur für die Betragseingabe',
+    recipients:'EMPFÄNGER', feeLabel:'NETZGEBÜHR (sats)', priceMissing:'Kurs fehlt',
+    qrLabel:'QR-Bild → erste Adresse', pickQr:'Bild wählen', noFile:'Keine Datei gewählt',
+    recent:'ZULETZT', sendTitle:'Senden bestätigen', sendConfirm:'Bestätigen', sendCancel:'Abbrechen',
+    changeHint:'Rest (Change) geht zurück an deine Wallet-Adresse.',
+    badAddr:'Ungültige Adresse für dieses Netzwerk',
+    exportTitle:'2 · VERSCHLÜSSELTE DATEI', exportHint:'Kopiert die verschlüsselte Wallet-Datei nach Downloads.',
+    exportBtn:'Datei exportieren', importTitle:'3 · DATEI IMPORTIEREN',
+    importHint:'Exportierte JSON wieder einbinden (Passwort der Wallet nötig).',
+    importName:'Wallet-Name', importPw:'Passwort der Wallet', importBtn:'Importieren',
+    discTitle:'Haftungsausschluss', discAccept:'Ich verstehe und akzeptiere',
+    discText:'Kallubi Wallet ist eine unabhängige Desktop-Wallet.\n\n• Keine Garantie, Nutzung auf eigene Gefahr\n• Nicht von der BSV Association oder WhatsOnChain\n• Bewahre Seed & 13. Wort offline – Verlust = Verlust der Coins\n• Prüfe Adressen und Beträge vor dem Senden',
+    emptyWallets:'Noch keine Wallet.\n„Neue Wallet“ oder „Aus Seed“.',
+    deriv:'Ableitung', path:'Pfad (BIP44)', scanBtn:'Paths scannen', scanRun:'Scan läuft…',
+    scanPick:'Gewählt: ', enterSeed:'Seed eingeben', pathReq:'Pfad nötig',
+    modeKallubi:'Kallubi (original)', modeBip:'BIP44 / Pfad', pathCustom:'Eigene…',
+    scanHint:'★ = Guthaben · Zeile tippen = Path wählen',
+    overviewSub:'Saldo · Adresse · Notiz', autoHint:'Minuten · 0 = aus',
+    backupSub:'Zuerst Seed · dann Datei', seedSection:'1 · SEED',
+    sendSuccess:'Gesendet'
+  },
+  en: {
+    unlock:'Unlock', del:'Delete', wallets:'WALLETS', pw:'Password',
+    neu:'New wallet', seed:'From seed', back:'Back', name:'Name',
+    pwNew:'Password (min. 8)', pw2:'Confirm password', bip:'13th word (optional passphrase)',
+    gen:'Generate seed', seedOk:'I saved the seed offline', save:'Save wallet',
+    fromSeed:'FROM SEED', words:'12 words', restore:'Restore',
+    overview:'Overview', receive:'Receive', send:'Send', history:'History',
+    timelock:'Timelock', backup:'Backup', logout:'Log out', hide:'Hide', show:'Show',
+    price:'BSV PRICE', spendable:'SPENDABLE', refresh:'Refresh', copy:'Copy',
+    lock:'Lock', active:'ACTIVE LOCKS', tlSub:'App-level only · not on-chain',
+    warn:'MAINNET – real funds. Small amounts only.',
+    delTitle:'Delete wallet?', delText:'This cannot be undone. Without your seed (and 13th word), funds cannot be recovered.',
+    delYes:'Delete permanently', delNo:'Cancel', showPw:'Show', hidePw:'Hide',
+    sub:'Local encrypted wallets · Mainnet & Testnet',
+    hoursInvalid:'Hours must be > 0', amountInvalid:'Amount must be > 0',
+    until:'until', unlockable:'unlockable', noLocks:'No active locks', copySeed:'Copy seed',
+    note:'WALLET NOTE', saveNote:'Save note',
+    sendHint:'Always BSV on-chain · unit only helps you type the amount',
+    recipients:'RECIPIENTS', feeLabel:'NETWORK FEE (sats)', priceMissing:'Price unavailable',
+    qrLabel:'QR image → first address', pickQr:'Choose image', noFile:'No file chosen',
+    recent:'RECENT', sendTitle:'Confirm send', sendConfirm:'Confirm', sendCancel:'Cancel',
+    changeHint:'Change (remaining sats) returns to your wallet address.',
+    badAddr:'Invalid address for this network',
+    exportTitle:'2 · ENCRYPTED FILE', exportHint:'Copies the encrypted wallet file to Downloads.',
+    exportBtn:'Export encrypted file', importTitle:'3 · IMPORT FILE',
+    importHint:'Re-import an exported JSON (wallet password required).',
+    importName:'Wallet name', importPw:'Wallet password', importBtn:'Import',
+    discTitle:'Disclaimer', discAccept:'I understand and accept',
+    discText:'Kallubi Wallet is an independent desktop wallet.\n\n• No warranty – use at your own risk\n• Not affiliated with BSV Association or WhatsOnChain\n• Keep seed & 13th word offline – loss means loss of funds\n• Double-check addresses and amounts before sending',
+    emptyWallets:'No wallets yet.\nUse “New wallet” or “From seed”.',
+    deriv:'Derivation', path:'Path (BIP44)', scanBtn:'Auto-Scan paths', scanRun:'Scanning…',
+    scanPick:'Selected: ', enterSeed:'Enter seed', pathReq:'Path required',
+    modeKallubi:'Kallubi (original)', modeBip:'BIP44 / path', pathCustom:'Custom…',
+    scanHint:'★ = funds · tap row = select path',
+    overviewSub:'Balance · address · note', autoHint:'minutes · 0 = off',
+    backupSub:'Seed first · then encrypted file', seedSection:'1 · SEED',
+    sendSuccess:'Sent'
+  }
+}
+function t(k){ return (I18N[lang]&&I18N[lang][k])||k }
+function copyText(x){ if(x) clipboard.writeText(String(x)) }
+
+function setStatus(apiOk, priceOk){
+  document.getElementById('stApi').innerHTML = 'API: <span class="'+(apiOk?'ok':'bad')+'">'+(apiOk?'ok':'error')+'</span>'
+  refreshLastVia(); document.getElementById('stPrice').innerHTML = 'Price: <span class="'+(priceOk?'ok':'bad')+'">'+(priceOk?'ok':'—')+'</span>'
+}
+
+function updateUnlockBtn(){
+  const pw = document.getElementById('pwUnlock').value
+  document.getElementById('btnUnlock').disabled = !(selectedId && pw)
+}
+
+function validateAddress(addr, net){
+  if (!addr || typeof addr !== 'string') return false
+  const a = addr.trim()
+  if (a.length < 25 || a.length > 42) return false
+  if (!/^[123mn][a-km-zA-HJ-NP-Z1-9]+$/.test(a)) return false
+  if (net === 'main') return a[0] === '1' || a[0] === '3'
+  return a[0] === 'm' || a[0] === 'n' || a[0] === '2'
+}
+
+function loadRecent(){
+  try {
+    const raw = localStorage.getItem(RECENT_KEY + '_' + network)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr : []
+  } catch(e){ return [] }
+}
+function saveRecent(addr){
+  if (!addr) return
+  let list = loadRecent().filter(function(x){ return x !== addr })
+  list.unshift(addr)
+  list = list.slice(0, 5)
+  localStorage.setItem(RECENT_KEY + '_' + network, JSON.stringify(list))
+  renderRecent()
+}
+function renderRecent(){
+  const box = document.getElementById('recentBox')
+  const list = loadRecent()
+  if (!list.length){ box.innerHTML = '<span class="muted">—</span>'; return }
+  box.innerHTML = ''
+  list.forEach(function(addr){
+    const span = document.createElement('span')
+    span.className = 'chip'
+    span.textContent = addr.slice(0, 8) + '…' + addr.slice(-4)
+    span.title = addr
+    span.onclick = function(){
+      ensureRecvRows()
+      const first = document.querySelector('#recvList .r-addr')
+      if (first) first.value = addr
+    }
+    box.appendChild(span)
+  })
+}
+
+function applyI18n() {
+  const ids = {
+    btnUnlock:'unlock', btnDeleteWallet:'del', tWallets:'wallets', tPw:'pw', btnNew:'neu', btnSeed:'seed',
+    btnBackList:'back', tName:'name', tName2:'name', tPwNew:'pwNew', tPwNew2:'pw2', tBip:'bip', tBip2:'bip',
+    btnGenSeed:'gen', tSeedOk:'seedOk', btnSaveNew:'save', tFromSeed:'fromSeed', tMnemonic:'words',
+    tPwRest:'pwNew', tPwRest2:'pw2', btnRestore:'restore', tOverview:'overview', tReceive:'receive',
+    tSend:'send', tHistory:'history', tTimelock:'timelock', tBackup:'backup', btnLogout:'logout',
+    tPrice:'price', tSpendable:'spendable', btnRefresh:'refresh', btnCopyAddr:'copy', btnCopyAddrOverview:'copy',
+    btnTlLock:'lock', tActiveLocks:'active', tTlSub:'tlSub', tMainWarn:'warn', delTitle:'delTitle',
+    delText:'delText', delYes:'delYes', delNo:'delNo', tLockSub:'sub', btnCopySeed:'copySeed',
+    btnCopyBackupSeed:'copySeed', tNote:'note', btnSaveNote:'saveNote', tSendHint:'sendHint',
+    tRecipients:'recipients', tFeeLabel:'feeLabel', tQrLabel:'qrLabel', btnPickQr:'pickQr',
+    tRecent:'recent', sendModalTitle:'sendTitle', sendYes:'sendConfirm', sendNo:'sendCancel',
+    tExportTitle:'exportTitle', tExportHint:'exportHint', btnExportFile:'exportBtn',
+    tImportTitle:'importTitle', tImportHint:'importHint', tImportName:'importName', tImportPw:'importPw',
+    btnDoImport:'importBtn', tDeriv:'deriv', tPath:'path', btnScanSeed:'scanBtn', tNewDeriv:'deriv', tNewPath:'path', discTitle:'discTitle', discAccept:'discAccept',
+    tOverviewSub:'overviewSub', tAutoHint:'autoHint', tBackupSub:'backupSub', tSeedSection:'seedSection'
+  }
+  Object.keys(ids).forEach(function(id){
+    const el = document.getElementById(id)
+    if (el) el.textContent = t(ids[id])
+  })
+  document.getElementById('discText').textContent = t('discText')
+  document.getElementById('sendChangeHint').textContent = t('changeHint')
+  document.getElementById('btnHideBal').textContent = hideBalance ? t('show') : t('hide')
+  const fileInput = document.getElementById('qrFile')
+  if (!fileInput.files || !fileInput.files.length) document.getElementById('qrFileName').textContent = t('noFile')
+  const imp = document.getElementById('importFile')
+  if (!imp.files || !imp.files.length) document.getElementById('importFileName').textContent = t('noFile')
+  document.querySelectorAll('.pw-toggle').forEach(function(b){
+    const input = document.getElementById(b.getAttribute('data-target'))
+    b.textContent = input && input.type === 'password' ? t('showPw') : t('hidePw')
+  })
+  document.querySelectorAll('#navApp button[data-view]').forEach(function(b){
+    if (I18N[lang][b.dataset.view]) b.textContent = t(b.dataset.view)
+  })
+  renderWalletList()
+}
+
+document.querySelectorAll('.pw-toggle').forEach(function(btn){
+  btn.onclick = function(){
+    const input = document.getElementById(btn.getAttribute('data-target'))
+    if (!input) return
+    input.type = input.type === 'password' ? 'text' : 'password'
+    applyI18n()
+  }
+})
+
+function setNetwork(n){
+  network = n === 'main' ? 'main' : 'test'
+  document.getElementById('netPill').textContent = network === 'main' ? '● MAINNET' : '● TESTNET'
+  document.getElementById('tMainWarn').style.display = network === 'main' ? '' : 'none'
+  document.getElementById('btnNetMain').classList.toggle('active', network === 'main')
+  document.getElementById('btnNetTest').classList.toggle('active', network === 'test')
+  selectedId = null
+  renderWalletList()
+  renderRecent()
+  updateUnlockBtn()
+}
+
+function clearSeedForms(){
+  ;['restoreMnemonic','restoreBip','restoreName','restorePw','restorePw2','newName','newPw','newPw2','newBip'].forEach(function(id){
+    const el = document.getElementById(id); if (el) el.value = ''
+  })
+  document.getElementById('seedPreview').textContent = ''
+  document.getElementById('seedConfirm').checked = false
+  pendingSeed = null
+  document.getElementById('newErr').textContent = ''
+  document.getElementById('seedErr').textContent = ''
+}
+function showPanelList(){
+  document.getElementById('formNew').classList.add('hidden')
+  document.getElementById('formSeed').classList.add('hidden')
+  if (document.getElementById('formWif')) document.getElementById('formWif').classList.add('hidden')
+  document.getElementById('btnBackList').classList.add('hidden')
+  clearSeedForms()
+}
+function showPanelForm(which){
+  clearSeedForms()
+  document.getElementById('formNew').classList.toggle('hidden', which !== 'new')
+  document.getElementById('formSeed').classList.toggle('hidden', which !== 'seed')
+  if (document.getElementById('formWif')) document.getElementById('formWif').classList.toggle('hidden', which !== 'wif')
+  document.getElementById('btnBackList').classList.remove('hidden')
+}
+
+function renderWalletList(){
+  const list = store.listWallets(network)
+  const box = document.getElementById('walletList')
+  box.innerHTML = ''
+  if (!list.length){
+    const empty = document.createElement('div')
+    empty.className = 'empty-wallets'
+    empty.textContent = t('emptyWallets')
+    box.appendChild(empty)
+    updateUnlockBtn()
+    return
+  }
+  list.forEach(function(w){
+    const div = document.createElement('div')
+    div.className = 'wallet-item' + (selectedId === w.id ? ' active' : '')
+    div.innerHTML = '<div class="name"></div><div class="note"></div><div class="addr"></div>'
+    div.querySelector('.name').textContent = w.name
+    div.querySelector('.note').textContent = w.note || ''
+    div.querySelector('.addr').textContent = w.address
+    div.onclick = function(){ selectedId = w.id; renderWalletList(); updateUnlockBtn() }
+    box.appendChild(div)
+  })
+  updateUnlockBtn()
+}
+
+
+function refreshLastVia(){
+  var el = document.getElementById('lastVia')
+  if (!el) return
+  try {
+    var fs = require('fs')
+    var os = require('os')
+    var path = require('path')
+    var line = fs.readFileSync(path.join(os.homedir(), '.kallubi-bsv-wallet', 'last-broadcast.txt'), 'utf8').trim()
+    var via = line.split(' ')[1] || ''
+    el.textContent = via === 'node'
+      ? (lang==='de' ? 'Letzter Broadcast: Kallubi BSV Node' : 'Last broadcast: Kallubi BSV Node')
+      : via === 'woc'
+        ? (lang==='de' ? 'Letzter Broadcast: API (WoC)' : 'Last broadcast: API (WoC)')
+        : line
+  } catch (e) { el.textContent = '' }
+}
+function pasteInto(id){
+  try {
+    var { clipboard } = require('electron')
+    var txt = clipboard.readText() || ''
+    var el = document.getElementById(id)
+    if (el) { el.focus(); el.value = txt; el.dispatchEvent(new Event('input')) }
+  } catch (e) { console.log('paste fail', e.message) }
+}
+document.addEventListener('click', function(ev){
+  var id = ev.target && ev.target.id
+  if (id && id.indexOf('btnPaste_')===0) pasteInto(id.slice(9))
+})
+function fmtPrice(n){ return (n==null||isNaN(n)) ? '—' : Number(n).toFixed(2) }
+
+async function loadPrice(){
+  const res = await fetch('https://api.whatsonchain.com/v1/bsv/main/exchangerate')
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const j = await res.json()
+  priceUsd = Number(j.rate)
+  document.getElementById('priceBox').textContent = 'USD ' + fmtPrice(priceUsd)
+}
+
+function setBalanceUi(spendable){
+  if (hideBalance){
+    
+  try {
+    var el = document.getElementById('addrPath')
+    if (el && typeof session !== 'undefined' && session) {
+      var dp = session.derivationPath || session.derivationMode || ''
+      el.textContent = dp && dp !== 'kallubi' ? ('Path: ' + dp) : (dp === 'kallubi' || session.derivationMode === 'kallubi' ? (lang==='de'?'Ableitung: Kallubi':'Derivation: Kallubi') : '')
+    }
+  } catch(e) {}
+
+document.getElementById('balSats').textContent = '••••••'
+    document.getElementById('balFiat').textContent = '••••'
+  } else {
+    const bsv = spendable / 1e8
+    document.getElementById('balSats').textContent = bsv.toFixed(8) + ' BSV'
+    let line = Number(spendable).toLocaleString() + ' sats'
+    if (priceUsd != null) {
+      line += ' · ≈ ' + (bsv * priceUsd).toFixed(4) + ' $'
+    }
+    document.getElementById('balFiat').textContent = line
+  }
+}
+
+async function refreshBalance(){
+  if (!session) return
+  const bal = await core.getBalance(session.address, network)
+  const locked = timelock.getLockedSats(session.address)
+  const total = (bal.confirmed||0) + (bal.unconfirmed||0)
+  setBalanceUi(Math.max(0, total - locked))
+  document.getElementById('addrBox').textContent = session.address
+  document.getElementById('recvAddr').textContent = session.address
+  document.getElementById('walletNote').value = session.note || ''
+  try {
+    const url = await QRCode.toDataURL(session.address, { width: 180, margin: 2 })
+    document.getElementById('qr').innerHTML = ''
+    const img = document.createElement('img'); img.src = url
+    document.getElementById('qr').appendChild(img)
+  } catch(e){}
+}
+
+function resetAutoLock(){
+  if (autoTimer) clearTimeout(autoTimer)
+  const min = Number(document.getElementById('autoLockMin').value)||0
+  if (min > 0 && session) autoTimer = setTimeout(logout, min*60*1000)
+}
+
+function logout(){
+  session = null
+  if (autoTimer) clearTimeout(autoTimer)
+  document.getElementById('viewApp').classList.add('hidden')
+  document.getElementById('viewLock').classList.remove('hidden')
+  document.getElementById('navApp').classList.add('hidden')
+  document.getElementById('pwUnlock').value = ''
+  document.getElementById('lockErr').textContent = ''
+  renderWalletList()
+  updateUnlockBtn()
+}
+
+
+  /* mode1-i18n-options */
+  try {
+    var rm = document.getElementById('restoreMode')
+    if (rm && rm.options.length >= 2) {
+      rm.options[0].text = t('modeKallubi') || rm.options[0].text
+      rm.options[1].text = t('modeBip') || rm.options[1].text
+    }
+    var nm = document.getElementById('newMode')
+    if (nm && nm.options.length >= 2) {
+      nm.options[0].text = t('modeKallubi') || nm.options[0].text
+      nm.options[1].text = t('modeBip') || nm.options[1].text
+    }
+    var bs = document.getElementById('btnScanSeed')
+    if (bs) bs.textContent = t('scanBtn') || bs.textContent
+  } catch (e) {}
+
+function __mode1Lang(){
+  /* mode1-i18n-options */
+  try {
+    var rm = document.getElementById('restoreMode')
+    if (rm && rm.options.length >= 2) {
+      rm.options[0].text = t('modeKallubi') || rm.options[0].text
+      rm.options[1].text = t('modeBip') || rm.options[1].text
+    }
+    var nm = document.getElementById('newMode')
+    if (nm && nm.options.length >= 2) {
+      nm.options[0].text = t('modeKallubi') || nm.options[0].text
+      nm.options[1].text = t('modeBip') || nm.options[1].text
+    }
+    var bs = document.getElementById('btnScanSeed')
+    if (bs) bs.textContent = t('scanBtn') || bs.textContent
+  } catch (e) {}
+}
+function showAppPage(name){
+  ;['overview','receive','send','history','timelock','backup'].forEach(function(p){
+    document.getElementById('page'+p[0].toUpperCase()+p.slice(1)).classList.toggle('hidden', p!==name)
+  })
+  document.querySelectorAll('#navApp button[data-view]').forEach(function(b){
+    b.classList.toggle('active', b.dataset.view===name)
+  })
+  if (name==='history') loadHistory()
+  if (name==='timelock') renderLocks()
+  if (name==='send'){ ensureRecvRows(); renderRecent() }
+  resetAutoLock()
+}
+
+function ensureRecvRows(){
+  const box = document.getElementById('recvList')
+  if (!box.children.length) addRecvRow()
+}
+
+function addRecvRow(addr, amount, unit){
+  const box = document.getElementById('recvList')
+  const row = document.createElement('div')
+  row.className = 'recv-row'
+  row.innerHTML =
+    '<input class="r-addr" placeholder="Address" />' +
+    '<input class="r-amt" type="number" min="0" step="any" placeholder="0" />' +
+    '<select class="r-unit"><option value="sats">sats</option><option value="bsv">BSV</option><option value="usd">≈ USD</option></select>' +
+    '<button type="button" class="btn small r-del">×</button>'
+  if (addr) row.querySelector('.r-addr').value = addr
+  if (amount != null) row.querySelector('.r-amt').value = amount
+  if (unit) row.querySelector('.r-unit').value = unit
+  row.querySelector('.r-del').onclick = function(){ if (box.children.length > 1) row.remove() }
+  box.appendChild(row)
+}
+
+function unitToSats(val, unit){
+  const n = Number(val)
+  if (!(n > 0)) return 0
+  if (unit === 'bsv') return Math.round(n * 1e8)
+  if (unit === 'usd') {
+    if (!priceUsd || priceUsd <= 0) throw new Error(t('priceMissing'))
+    return Math.round((n / priceUsd) * 1e8)
+  }
+  return Math.round(n)
+}
+
+function collectRecipients(){
+  const rows = document.querySelectorAll('#recvList .recv-row')
+  const list = []
+  rows.forEach(function(row){
+    const address = row.querySelector('.r-addr').value.trim()
+    const raw = row.querySelector('.r-amt').value
+    const unit = row.querySelector('.r-unit').value
+    if (!address && !raw) return
+    if (!validateAddress(address, network)) throw new Error(t('badAddr') + ': ' + address)
+    const satoshis = unitToSats(raw, unit)
+    if (!address || !(satoshis > 0)) throw new Error(t('amountInvalid'))
+    list.push({ address: address, satoshis: satoshis })
+  })
+  if (!list.length) throw new Error(lang==='de'?'Empfänger fehlen':'No recipients')
+  return list
+}
+
+function walletDir(){
+  return path.join(os.homedir(), '.kallubi-bsv-wallet', 'wallets', network === 'main' ? 'main' : 'test')
+}
+function findWalletFile(id){
+  const dir = walletDir()
+  const candidates = [id + '.enc.json', id + '.json']
+  for (let i = 0; i < candidates.length; i++) {
+    const p = path.join(dir, candidates[i])
+    if (fs.existsSync(p)) return p
+  }
+  return null
+}
+
+async function exportQrPng(){
+  if (!session) return
+  const url = await QRCode.toDataURL(session.address, { width: 512, margin: 2 })
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'kallubi-' + session.address.slice(0, 8) + '.png'
+  a.click()
+}
+
+async function loadHistory(){
+  const box = document.getElementById('histBox')
+  box.innerHTML = '<div class="muted">…</div>'
+  try {
+    const net = network === 'main' ? 'main' : 'test'
+    const api = 'https://api.whatsonchain.com/v1/bsv/' + net
+    const res = await fetch(api + '/address/' + session.address + '/history')
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const data = await res.json()
+    const list = Array.isArray(data) ? data.slice(0, 20) : []
+    if (!list.length){ box.innerHTML = '<div class="muted">—</div>'; return }
+    box.innerHTML = ''
+    const loc = lang === 'de' ? 'de-DE' : 'en-GB'
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i]
+      let when = ''
+      if (h.time) when = new Date(h.time*1000).toLocaleString(loc)
+      else if (h.tx_hash) {
+        try {
+          const tr = await fetch(api + '/tx/' + h.tx_hash)
+          if (tr.ok) {
+            const tx = await tr.json()
+            const ts = tx.time || tx.blocktime
+            if (ts) when = new Date(ts*1000).toLocaleString(loc)
+          }
+        } catch(e){}
+      }
+      if (!when && h.height) when = 'block ' + h.height
+      if (!when) when = '—'
+      const txUrl = network === 'main' ? ('https://whatsonchain.com/tx/'+h.tx_hash) : ('https://test.whatsonchain.com/tx/'+h.tx_hash)
+      const div = document.createElement('div'); div.className = 'hist-item'
+      const top = document.createElement('div'); top.className = 'muted'
+      top.textContent = when + (h.height ? (' · block ' + h.height) : '')
+      const row = document.createElement('div'); row.className = 'row'
+      const a = document.createElement('a'); a.href = '#'; a.textContent = (h.tx_hash||'').slice(0,20)+'…'
+      a.onclick = function(ev){ ev.preventDefault(); shell.openExternal(txUrl) }
+      const c = document.createElement('button'); c.type = 'button'; c.className = 'btn small'; c.textContent = t('copy')
+      c.onclick = function(){ copyText(h.tx_hash) }
+      row.appendChild(a); row.appendChild(c)
+      div.appendChild(top); div.appendChild(row)
+      box.appendChild(div)
+    }
+  } catch(e){ box.innerHTML = '<div class="err">'+e.message+'</div>' }
+}
+
+function renderLocks(){
+  const list = timelock.loadLocks().filter(function(l){ return l.address === session.address })
+  const box = document.getElementById('tlList')
+  if (!list.length){ box.textContent = t('noLocks'); return }
+  box.innerHTML = ''
+  const now = Math.floor(Date.now()/1000)
+  const loc = lang === 'de' ? 'de-DE' : 'en-GB'
+  list.forEach(function(l){
+    const div = document.createElement('div'); div.className = 'hist-item'
+    const left = Math.max(0, Number(l.lockUnix)-now)
+    const until = new Date(Number(l.lockUnix)*1000).toLocaleString(loc)
+    let leftTxt = left > 0
+      ? (Math.floor(left/3600)+'h '+Math.floor((left%3600)/60)+'m '+(left%60)+'s · '+t('until')+' '+until)
+      : (t('unlockable')+' · '+until)
+    const info = document.createElement('div'); info.textContent = l.lockSats + ' sats · ' + leftTxt
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn small'
+    btn.textContent = lang==='de'?'Einlösen':'Unlock'; btn.disabled = left > 0
+    btn.onclick = function(){
+      try { timelock.unlockTimelock({ lockEntry:l }); renderLocks(); refreshBalance() }
+      catch(e){ document.getElementById('tlErr').textContent = e.message }
+    }
+    div.appendChild(info); div.appendChild(btn); box.appendChild(div)
+  })
+}
+
+async function doBroadcast(recipients, fee){
+  const r = await core.send({
+    priv: session.priv, fromAddr: session.address, recipients: recipients,
+    feeSats: fee, network: network
+  })
+  recipients.forEach(function(x){ saveRecent(x.address) })
+  const txUrl = network === 'main' ? ('https://whatsonchain.com/tx/'+r.txid) : ('https://test.whatsonchain.com/tx/'+r.txid)
+  const wrap = document.getElementById('sendOk')
+  wrap.className = 'ok flash'
+  wrap.textContent = ''
+  wrap.appendChild(document.createTextNode(t('sendSuccess') + ' · ' + (r.via || '?') + ' · ' + r.txid.slice(0, 18) + '… '))
+  const open = document.createElement('button'); open.type = 'button'; open.className = 'btn small'; open.textContent = 'Explorer'
+  open.onclick = function(){ shell.openExternal(txUrl) }
+  const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'btn small'; cp.textContent = t('copy')
+  cp.onclick = function(){ copyText(r.txid) }
+  wrap.appendChild(open); wrap.appendChild(cp)
+  refreshBalance().catch(function(){})
+  return r
+}
+
+document.getElementById('btnDE').onclick = function(){ lang='de'; document.getElementById('btnDE').classList.add('active'); document.getElementById('btnEN').classList.remove('active'); applyI18n() }
+document.getElementById('btnEN').onclick = function(){ lang='en'; document.getElementById('btnEN').classList.add('active'); document.getElementById('btnDE').classList.remove('active'); applyI18n() }
+document.getElementById('btnNetMain').onclick = function(){ setNetwork('main') }
+document.getElementById('btnNetTest').onclick = function(){ setNetwork('test') }
+document.getElementById('btnBackList').onclick = showPanelList
+document.getElementById('btnNew').onclick = function(){ showPanelForm('new') }
+document.getElementById('btnSeed').onclick = function(){ showPanelForm('seed') }
+document.getElementById('btnWif').onclick = function(){ showPanelForm('wif') }
+document.getElementById('btnDoWif').onclick = function(){
+  document.getElementById('wifErr').textContent = ''
+  try {
+    const name = document.getElementById('wifName').value.trim()
+    const key = document.getElementById('wifKey').value.trim()
+    const p1 = document.getElementById('wifPw').value
+    const p2 = document.getElementById('wifPw2').value
+    if (!name) throw new Error(lang==='de' ? 'Name fehlt' : 'Name required')
+    if (p1 !== p2) throw new Error(lang==='de' ? 'Passwörter ungleich' : 'Passwords differ')
+    store.importFromWif(name, p1, key, network)
+    document.getElementById('wifKey').value = ''
+    document.getElementById('wifPw').value = ''
+    document.getElementById('wifPw2').value = ''
+    showPanelList(); renderWalletList()
+  } catch (e) { document.getElementById('wifErr').textContent = e.message }
+}
+
+document.getElementById('btnAddRecv').onclick = function(){ addRecvRow() }
+document.getElementById('btnPickQr').onclick = function(){ document.getElementById('qrFile').click() }
+document.getElementById('btnPickImport').onclick = function(){ document.getElementById('importFile').click() }
+
+document.getElementById('pwUnlock').addEventListener('input', updateUnlockBtn)
+document.getElementById('pwUnlock').addEventListener('keydown', function(ev){
+  if (ev.key === 'Enter' && !document.getElementById('btnUnlock').disabled) {
+    ev.preventDefault()
+    document.getElementById('btnUnlock').click()
+  }
+})
+
+document.querySelectorAll('[data-fee]').forEach(function(b){
+  b.onclick = function(){
+    document.getElementById('sendFee').value = b.getAttribute('data-fee')
+    document.querySelectorAll('[data-fee]').forEach(function(x){ x.classList.toggle('active', x===b) })
+  }
+})
+
+document.getElementById('qrFile').onchange = function(ev){
+  const file = ev.target.files && ev.target.files[0]
+  document.getElementById('qrFileName').textContent = (file && file.name) || t('noFile')
+  if (!file) return
+  const img = new Image(); const url = URL.createObjectURL(file)
+  img.onload = function(){
+    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
+    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(imageData.data, imageData.width, imageData.height)
+    URL.revokeObjectURL(url)
+    if (!code || !code.data) {
+      document.getElementById('sendErr').textContent = lang==='de'?'Kein QR erkannt':'No QR found'
+      return
+    }
+    ensureRecvRows()
+    const first = document.querySelector('#recvList .r-addr')
+    if (first) first.value = code.data.trim()
+    document.getElementById('sendErr').textContent = ''
+  }
+  img.onerror = function(){ document.getElementById('sendErr').textContent = 'Image error' }
+  img.src = url
+}
+
+document.getElementById('importFile').onchange = function(ev){
+  const file = ev.target.files && ev.target.files[0]
+  document.getElementById('importFileName').textContent = (file && file.name) || t('noFile')
+}
+
+document.getElementById('btnGenSeed').onclick = function(){
+  document.getElementById('newErr').textContent = ''
+  try {
+    const bip = document.getElementById('newBip').value
+    let mode = 'kallubi', derivPath = 'kallubi'
+    if (document.getElementById('newMode')) {
+      mode = document.getElementById('newMode').value
+      if (mode === 'bip44') {
+        const pr = document.getElementById('newPathPreset').value
+        derivPath = pr === 'custom' ? document.getElementById('newPathCustom').value.trim() : pr
+      }
+    }
+    const g = store.generateNewSeedWallet(bip, network, mode, derivPath)
+    pendingSeed = { mnemonic:g.mnemonic, bip:bip, mode:mode, path:derivPath }
+    document.getElementById('seedPreview').textContent = g.mnemonic
+  } catch(e){ document.getElementById('newErr').textContent = e.message }
+}
+document.getElementById('btnCopySeed').onclick = function(){ copyText(document.getElementById('seedPreview').textContent) }
+document.getElementById('btnCopyBackupSeed').onclick = function(){ copyText(document.getElementById('backupSeed').textContent) }
+
+document.getElementById('btnSaveNew').onclick = function(){
+  document.getElementById('newErr').textContent = ''
+  try {
+    if (!pendingSeed) throw new Error(lang==='de'?'Zuerst Seed erzeugen':'Generate seed first')
+    if (!document.getElementById('seedConfirm').checked) throw new Error(lang==='de'?'Seed bestätigen':'Confirm seed')
+    const name = document.getElementById('newName').value.trim()
+    const p1 = document.getElementById('newPw').value
+    const p2 = document.getElementById('newPw2').value
+    if (p1 !== p2) throw new Error(lang==='de'?'Passwörter ungleich':'Passwords differ')
+    store.saveNewWallet(name, p1, pendingSeed.mnemonic, pendingSeed.bip, network, pendingSeed.mode || 'kallubi', pendingSeed.path || 'kallubi')
+    showPanelList(); renderWalletList()
+  } catch(e){ document.getElementById('newErr').textContent = e.message }
+}
+
+document.getElementById('restorePathPreset').onchange = function(){
+  const c = document.getElementById('restorePathCustom')
+  c.classList.toggle('hidden', this.value !== 'custom')
+}
+document.getElementById('restoreMode').onchange = function(){
+  const bip = this.value === 'bip44'
+  document.getElementById('restorePathPreset').disabled = !bip
+  document.getElementById('restorePathCustom').disabled = !bip
+}
+if (document.getElementById('newMode')) {
+  document.getElementById('newMode').onchange = function(){
+    const bip = this.value === 'bip44'
+    document.getElementById('newPathPreset').disabled = !bip
+    document.getElementById('newPathCustom').disabled = !bip
+  }
+  document.getElementById('newPathPreset').onchange = function(){
+    document.getElementById('newPathCustom').classList.toggle('hidden', this.value !== 'custom')
+  }
+}
+let scanPick = null
+document.getElementById('btnScanSeed').onclick = async function(){
+  document.getElementById('seedErr').textContent = ''
+  document.getElementById('scanResults').textContent = (typeof t==='function' ? t('scanRun') : null) || (lang==='de' ? 'Scan läuft…' : 'Scanning…')
+  scanPick = null
+  try {
+    const mn = document.getElementById('restoreMnemonic').value.trim()
+    const bip = document.getElementById('restoreBip').value
+    if (!mn) throw new Error((typeof t==='function' && t('enterSeed')) || (lang==='de' ? 'Seed eingeben' : 'Enter seed'))
+    const core = require('./wallet-core.cjs')
+    const rows = await store.scanMnemonic(mn, bip, network, (addr, net) => core.getBalance(addr, net))
+    if (!rows.length) {
+      document.getElementById('scanResults').textContent = 'No paths'
+      return
+    }
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    html += '<tr style="opacity:.7;text-align:left"><th style="padding:4px">Path</th><th>Address</th><th style="text-align:right">Sats</th></tr>'
+    rows.forEach(function(r, i){
+      const star = r.total > 0 ? '★ ' : ''
+      html += '<tr class="scan-row" data-i="'+i+'" style="cursor:pointer;border-top:1px solid rgba(255,255,255,.08)">'
+      html += '<td style="padding:6px 4px">'+star+r.path+'</td>'
+      html += '<td style="padding:6px 4px;font-family:monospace">'+r.address.slice(0,6)+'…'+r.address.slice(-4)+'</td>'
+      html += '<td style="padding:6px 4px;text-align:right">'+(r.total)+'</td></tr>'
+    })
+    html += '</table>'
+    html += '<div class="muted" style="margin-top:8px;font-size:11px">' + (typeof t==='function' && t('scanHint') ? t('scanHint') : (lang==='de'?'★ = Guthaben · Zeile tippen = Path wählen':'★ = funds · tap row = select path')) + '</div>'
+    document.getElementById('scanResults').innerHTML = html
+    window.__scanRows = rows
+    document.querySelectorAll('.scan-row').forEach(function(tr){
+      tr.onclick = function(){
+        const r = window.__scanRows[Number(tr.getAttribute('data-i'))]
+        scanPick = r
+        document.getElementById('restoreMode').value = r.mode === 'bip44' ? 'bip44' : 'kallubi'
+        document.getElementById('restoreMode').dispatchEvent(new Event('change'))
+        if (r.mode === 'bip44') {
+          const preset = document.getElementById('restorePathPreset')
+          const opts = Array.from(preset.options).map(o => o.value)
+          if (opts.indexOf(r.path) >= 0) {
+            preset.value = r.path
+            document.getElementById('restorePathCustom').classList.add('hidden')
+          } else {
+            preset.value = 'custom'
+            document.getElementById('restorePathCustom').classList.remove('hidden')
+            document.getElementById('restorePathCustom').value = r.path
+          }
+        }
+        document.getElementById('seedErr').textContent = ((typeof t==='function' && t('scanPick')) || (lang==='de'?'Gewählt: ':'Selected: ')) + r.path
+      }
+    })
+  } catch(e){
+    document.getElementById('scanResults').textContent = ''
+    document.getElementById('seedErr').textContent = e.message
+  }
+}
+document.getElementById('btnRestore').onclick = function(){
+  document.getElementById('seedErr').textContent = ''
+  try {
+    const name = document.getElementById('restoreName').value.trim()
+    const mn = document.getElementById('restoreMnemonic').value.trim()
+    const bip = document.getElementById('restoreBip').value
+    const p1 = document.getElementById('restorePw').value
+    const p2 = document.getElementById('restorePw2').value
+    if (p1 !== p2) throw new Error(lang==='de'?'Passwörter ungleich':'Passwords differ')
+    let mode = document.getElementById('restoreMode').value
+    let derivPath = 'kallubi'
+    if (mode === 'bip44') {
+      const preset = document.getElementById('restorePathPreset').value
+      derivPath = preset === 'custom'
+        ? document.getElementById('restorePathCustom').value.trim()
+        : preset
+      if (!derivPath) throw new Error((typeof t==='function' && t('pathReq')) || 'Path required')
+    }
+    if (scanPick) {
+      mode = scanPick.mode === 'bip44' ? 'bip44' : 'kallubi'
+      derivPath = scanPick.path
+    }
+    store.restoreFromMnemonic(name, p1, mn, bip, network, mode, derivPath)
+    scanPick = null
+    showPanelList(); renderWalletList()
+  } catch(e){ document.getElementById('seedErr').textContent = e.message }
+}
+
+
+
+document.getElementById('btnUnlock').onclick = async function(){
+  document.getElementById('lockErr').textContent = ''
+  try {
+    if (!selectedId) throw new Error(lang==='de'?'Wallet wählen':'Select wallet')
+    session = store.unlockWallet(selectedId, document.getElementById('pwUnlock').value, network)
+    document.getElementById('viewLock').classList.add('hidden')
+    document.getElementById('viewApp').classList.remove('hidden')
+    document.getElementById('navApp').classList.remove('hidden')
+    showAppPage('overview'); try{var __ap=document.getElementById('addrPath');if(__ap&&session){var __dp=session.derivationPath||'';__ap.textContent=__dp&&__dp!=='kallubi'?'Path: '+__dp:(session.derivationMode==='kallubi'||__dp==='kallubi'?(lang==='de'?'Ableitung: Kallubi':'Derivation: Kallubi'):'');}}catch(e){}
+    let apiOk = false, priceOk = false
+    try { await loadPrice(); priceOk = true; apiOk = true } catch(e){ document.getElementById('priceBox').textContent = '—' }
+    try { await refreshBalance(); apiOk = true } catch(e){
+      document.getElementById('balSats').textContent = '—'
+      document.getElementById('balFiat').textContent = e.message || '—'
+    }
+    setStatus(apiOk, priceOk)
+    resetAutoLock()
+  } catch(e){ document.getElementById('lockErr').textContent = e.message }
+}
+
+document.getElementById('btnDeleteWallet').onclick = function(){
+  document.getElementById('lockErr').textContent = ''
+  try {
+    if (!selectedId) throw new Error(lang==='de'?'Wallet wählen':'Select wallet')
+    if (!document.getElementById('pwUnlock').value) throw new Error(lang==='de'?'Passwort eingeben':'Enter password')
+    document.getElementById('delModal').classList.remove('hidden')
+  } catch(e){ document.getElementById('lockErr').textContent = e.message }
+}
+document.getElementById('delNo').onclick = function(){ document.getElementById('delModal').classList.add('hidden') }
+document.getElementById('delYes').onclick = function(){
+  document.getElementById('delModal').classList.add('hidden')
+  try {
+    store.deleteWallet(selectedId, document.getElementById('pwUnlock').value, network)
+    selectedId = null
+    document.getElementById('pwUnlock').value = ''
+    renderWalletList()
+    updateUnlockBtn()
+  } catch(e){ document.getElementById('lockErr').textContent = e.message }
+}
+
+document.getElementById('btnLogout').onclick = logout
+document.getElementById('btnRefresh').onclick = async function(){
+  let apiOk = false, priceOk = false
+  try { await loadPrice(); priceOk = true; apiOk = true } catch(e){}
+  try { await refreshBalance(); apiOk = true } catch(e){ document.getElementById('balFiat').textContent = e.message||'—' }
+  setStatus(apiOk, priceOk)
+  resetAutoLock()
+}
+document.getElementById('btnHideBal').onclick = function(){ hideBalance = !hideBalance; applyI18n(); refreshBalance().catch(function(){}) }
+document.getElementById('btnCopyAddr').onclick = function(){ if(session) copyText(session.address) }
+document.getElementById('btnCopyAddrOverview').onclick = function(){ if(session) copyText(session.address) }
+document.getElementById('btnExportQr').onclick = exportQrPng
+document.getElementById('btnExportQr2').onclick = exportQrPng
+document.getElementById('btnHistRefresh').onclick = loadHistory
+document.getElementById('btnTlRefresh').onclick = renderLocks
+document.getElementById('autoLockMin').onchange = resetAutoLock
+
+document.getElementById('btnSaveNote').onclick = function(){
+  document.getElementById('noteOk').textContent = ''
+  try {
+    const note = document.getElementById('walletNote').value
+    store.updateWalletMeta(session.id, { note: note }, network)
+    session.note = note
+    document.getElementById('noteOk').textContent = lang==='de'?'Gespeichert':'Saved'
+  } catch(e){ document.getElementById('noteOk').textContent = e.message }
+}
+
+document.getElementById('btnSend').onclick = async function(){
+  document.getElementById('sendErr').textContent = ''
+  document.getElementById('sendOk').textContent = ''
+  document.getElementById('sendOk').className = 'ok'
+  try {
+    const recipients = collectRecipients()
+    const fee = Number(document.getElementById('sendFee').value)||500
+    const locked = timelock.getLockedSats(session.address)
+    const bal = await core.getBalance(session.address, network)
+    const total = (bal.confirmed||0)+(bal.unconfirmed||0)
+    const sum = recipients.reduce(function(s,r){ return s+r.satoshis },0)
+    const need = sum + fee
+    if (need > total - locked) throw new Error(lang==='de'?'Zu wenig verfügbar':'Insufficient spendable')
+    const change = (total - locked) - need
+    pendingSend = { recipients: recipients, fee: fee }
+    const body = document.getElementById('sendModalBody'); body.innerHTML = ''
+    recipients.forEach(function(r){
+      const d = document.createElement('div'); d.className = 'sum-line'
+      d.textContent = r.address + ' → ' + r.satoshis.toLocaleString() + ' sats'
+      body.appendChild(d)
+    })
+    const f = document.createElement('div'); f.className = 'sum-line'; f.textContent = 'Fee: ' + fee + ' sats'; body.appendChild(f)
+    const tline = document.createElement('div'); tline.className = 'sum-line'; tline.style.fontWeight = '700'
+    tline.textContent = 'Total: ' + need.toLocaleString() + ' sats'; body.appendChild(tline)
+    if (change >= 0) {
+      const c = document.createElement('div'); c.className = 'sum-line muted'
+      c.textContent = 'Change ≈ ' + Math.max(0, change).toLocaleString() + ' sats → ' + session.address
+      body.appendChild(c)
+    }
+    document.getElementById('sendModal').classList.remove('hidden')
+  } catch(e){ document.getElementById('sendErr').textContent = e.message }
+  resetAutoLock()
+}
+
+document.getElementById('sendNo').onclick = function(){ document.getElementById('sendModal').classList.add('hidden'); pendingSend = null }
+document.getElementById('sendYes').onclick = async function(){
+  document.getElementById('sendModal').classList.add('hidden')
+  if (!pendingSend) return
+  try { await doBroadcast(pendingSend.recipients, pendingSend.fee) }
+  catch(e){ document.getElementById('sendErr').textContent = e.message }
+  pendingSend = null
+  resetAutoLock()
+}
+
+document.getElementById('btnTlLock').onclick = function(){
+  document.getElementById('tlErr').textContent = ''
+  try {
+    const hours = Number(document.getElementById('tlHours').value)
+    const sats = Number(document.getElementById('tlSats').value)
+    if (!(hours > 0)) throw new Error(t('hoursInvalid'))
+    if (!(sats > 0)) throw new Error(t('amountInvalid'))
+    timelock.createTimelock({ address: session.address, lockSats: sats, hours: hours })
+    renderLocks(); refreshBalance().catch(function(){})
+  } catch(e){ document.getElementById('tlErr').textContent = e.message }
+}
+
+document.getElementById('btnShowSeed').onclick = function(){
+  document.getElementById('backupErr').textContent = ''
+  try {
+    document.getElementById('backupSeed').textContent =
+      store.revealMnemonic(session.id, document.getElementById('backupPw').value, network)
+  } catch(e){ document.getElementById('backupErr').textContent = e.message }
+}
+
+document.getElementById('btnExportFile').onclick = function(){
+  document.getElementById('exportOk').textContent = ''
+  document.getElementById('exportErr').textContent = ''
+  try {
+    if (!session) throw new Error('No session')
+    const src = findWalletFile(session.id)
+    if (!src) throw new Error('Wallet file not found')
+    const dl = path.join(os.homedir(), 'Downloads')
+    if (!fs.existsSync(dl)) fs.mkdirSync(dl, { recursive: true })
+    const dest = path.join(dl, 'kallubi-' + session.id + '-export.json')
+    const payload = {
+      type: 'kallubi-wallet-export', v: 1, network: network, id: session.id,
+      name: session.name || '', address: session.address, exportedAt: new Date().toISOString(),
+      encrypted: JSON.parse(fs.readFileSync(src, 'utf8'))
+    }
+    fs.writeFileSync(dest, JSON.stringify(payload, null, 2))
+    document.getElementById('exportOk').textContent = dest
+  } catch(e){ document.getElementById('exportErr').textContent = e.message }
+}
+
+document.getElementById('btnDoImport').onclick = function(){
+  document.getElementById('importErr').textContent = ''
+  document.getElementById('importOk').textContent = ''
+  try {
+    const file = document.getElementById('importFile').files && document.getElementById('importFile').files[0]
+    if (!file) throw new Error(lang==='de'?'Datei wählen':'Choose a file')
+    const name = document.getElementById('importName').value.trim() || 'Imported'
+    const pw = document.getElementById('importPw').value
+    if (!pw) throw new Error(lang==='de'?'Passwort nötig':'Password required')
+    const data = JSON.parse(fs.readFileSync(file.path, 'utf8'))
+    const dir = walletDir()
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    let id, encObj
+    if (data.type === 'kallubi-wallet-export' && data.encrypted) {
+      id = data.id || ('imp_' + Date.now().toString(36))
+      encObj = data.encrypted
+      if (data.network && data.network !== network) throw new Error('Network mismatch: file is ' + data.network)
+    } else if (data.v && data.salt && data.data) {
+      id = 'imp_' + Date.now().toString(36)
+      encObj = data
+    } else throw new Error('Unknown export format')
+    const dest = path.join(dir, id + '.enc.json')
+    fs.writeFileSync(dest, JSON.stringify(encObj, null, 2))
+    const listPath = path.join(dir, 'index.json')
+    let list = []
+    if (fs.existsSync(listPath)) {
+      try { list = JSON.parse(fs.readFileSync(listPath, 'utf8')); if (!Array.isArray(list)) list = list.wallets || [] } catch(e){ list = [] }
+    }
+    let address = data.address || ''
+    try {
+      list = list.filter(function(w){ return w.id !== id })
+      list.push({ id: id, name: name, address: address || 'pending', hasPassphrase: false, network: network, created: new Date().toISOString() })
+      fs.writeFileSync(listPath, JSON.stringify(list, null, 2))
+      const unlocked = store.unlockWallet(id, pw, network)
+      address = unlocked.address
+      try { store.updateWalletMeta(id, { name: name }, network) } catch(e){}
+      document.getElementById('importOk').textContent = (lang==='de'?'Import ok: ':'Import ok: ') + address
+      renderWalletList()
+    } catch(e){
+      try { fs.unlinkSync(dest) } catch(x){}
+      throw e
+    }
+  } catch(e){ document.getElementById('importErr').textContent = e.message }
+}
+
+document.getElementById('discOk').onclick = function(){
+  document.getElementById('discErr').textContent = ''
+  localStorage.setItem(DISC_KEY, '1')
+  document.getElementById('discModal').classList.add('hidden')
+}
+
+document.querySelectorAll('#navApp button[data-view]').forEach(function(b){
+  b.onclick = function(){ showAppPage(b.dataset.view) }
+})
+
+applyI18n()
+setNetwork('main')
+showPanelList()
+renderWalletList()
+updateUnlockBtn()
+setStatus(false, false)
+if (!localStorage.getItem(DISC_KEY)) document.getElementById('discModal').classList.remove('hidden')
+</script>
+</body>
+</html>

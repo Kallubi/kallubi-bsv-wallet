@@ -1,0 +1,46 @@
+# dependencies & build
+node_modules/
+dist/
+out/
+*.AppImage
+*.exe
+*.blockmap
+*.snap
+*.dmg
+linux-unpacked/
+win-unpacked/
+mac/
+builder-effective-config.yaml
+builder-debug.yml
+
+# local wallet secrets — NEVER commit
+*.enc.json
+wallet.enc.json
+wallets-index.json
+wallets-index-main.json
+wallets/
+testnet-wallet.json
+timelocks.json
+*.wif
+*.mnemonic
+.env
+.env.*
+
+# user data copies
+.kallubi-bsv-wallet/
+k3s-dashboard-token.txt
+
+# editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*.bak-*
+.vscode/
+.idea/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
