@@ -136,24 +136,45 @@ async function autoScan(mnemonic, passphrase, network, getBalanceFn) {
       seen.add(d.address)
       let confirmed = 0
       let unconfirmed = 0
+      // A lookup that failed is not an address holding nothing. Both used to arrive as zero, so a
+      // scan run while the balance API was unreachable presented every candidate as empty, which on
+      // a restore screen is indistinguishable from a seed that owns nothing. Record the reason and
+      // leave the totals null, so the caller can say 'unknown' rather than 'none'.
+      let error = null
       if (typeof getBalanceFn === 'function') {
         try {
           const b = await getBalanceFn(d.address, network)
           confirmed = Number(b.confirmed || 0)
           unconfirmed = Number(b.unconfirmed || 0)
-        } catch (e) {}
+        } catch (e) {
+          error = String((e && e.message) || e)
+        }
       }
       out.push({
         path: d.path,
         mode: d.mode,
         address: d.address,
-        confirmed,
-        unconfirmed,
-        total: confirmed + unconfirmed
+        confirmed: error ? null : confirmed,
+        unconfirmed: error ? null : unconfirmed,
+        total: error ? null : confirmed + unconfirmed,
+        error: error
       })
-    } catch (e) {}
+    } catch (e) {
+      // A path that cannot be derived is reported too, for the same reason: a silently missing row
+      // reads as a path that was checked and found empty.
+      out.push({
+        path: path,
+        mode: path === 'kallubi' ? 'kallubi' : 'bip44',
+        address: null,
+        confirmed: null,
+        unconfirmed: null,
+        total: null,
+        error: String((e && e.message) || e)
+      })
+    }
   }
-  out.sort((a, b) => b.total - a.total)
+  // Unknown totals sort last, so a usable candidate is never hidden behind a row that failed.
+  out.sort((a, b) => (b.total == null ? -1 : b.total) - (a.total == null ? -1 : a.total))
   return out
 }
 
