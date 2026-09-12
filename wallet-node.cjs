@@ -1,44 +1,122 @@
-const { execFileSync } = require('child_process')
-const path = require('path')
-const os = require('os')
 const fs = require('fs')
+const http = require('http')
+const settings = require('./wallet-settings.cjs')
 
-const ROOT = process.env.KALLUBI_SVNODE || path.join(os.homedir(), 'svnode-quickstart')
-const CLI_SH = path.join(ROOT, 'cli.sh')
-
-function available() {
-  return fs.existsSync(CLI_SH)
+function parseConf(file) {
+  const out = {}
+  if (!file || !fs.existsSync(file)) return out
+  String(fs.readFileSync(file, 'utf8')).split(/\r?\n/).forEach(function (line) {
+    const s = line.replace(/#.*$/, '').trim()
+    const i = s.indexOf('=')
+    if (i < 1) return
+    out[s.slice(0, i).trim()] = s.slice(i + 1).trim()
+  })
+  return out
 }
 
-function nodeCli(args, timeoutMs) {
-  if (!available()) throw new Error('SVNode cli.sh not found')
-  const out = execFileSync('/bin/bash', [CLI_SH].concat(args), {
-    encoding: 'utf8',
-    timeout: timeoutMs || 20000,
-    maxBuffer: 8 * 1024 * 1024
+function rpcCfg() {
+  const s = settings.load()
+  const conf = parseConf(s.rpcConf)
+  return {
+    host: s.rpcHost || '127.0.0.1',
+    port: Number(s.rpcPort || conf.rpcport || 8332),
+    user: s.rpcUser || conf.rpcuser || '',
+    pass: s.rpcPassword || conf.rpcpassword || ''
+  }
+}
+
+function rpc(method, params) {
+  const cfg = rpcCfg()
+  if (!cfg.user || !cfg.pass) {
+    return Promise.reject(new Error('RPC user/password missing – check bitcoin.conf'))
+  }
+  const body = JSON.stringify({ jsonrpc: '1.0', id: 'kallubi', method: method, params: params || [] })
+  const auth = Buffer.from(cfg.user + ':' + cfg.pass).toString('base64')
+  return new Promise(function (resolve, reject) {
+    const req = http.request({
+      host: cfg.host,
+      port: cfg.port,
+      method: 'POST',
+      path: '/',
+      timeout: 20000,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Basic ' + auth,
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, function (res) {
+      let data = ''
+      res.on('data', function (c) { data += c })
+      res.on('end', function () {
+        let json
+        try { json = JSON.parse(data) } catch (e) {
+          reject(new Error('RPC JSON: ' + data.slice(0, 80)))
+          return
+        }
+        if (json.error) reject(new Error(json.error.message || JSON.stringify(json.error)))
+        else resolve(json.result)
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', function () { req.destroy(); reject(new Error('RPC timeout')) })
+    req.write(body)
+    req.end()
   })
-  return String(out).trim()
+}
+
+function available() {
+  try {
+    const cfg = rpcCfg()
+    return !!(cfg.user && cfg.pass)
+  } catch (e) { return false }
+}
+
+async function getStatus() {
+  if (!available()) return { available: false, reason: 'no-rpc-config' }
+  try {
+    const info = await rpc('getblockchaininfo')
+    return {
+      available: true,
+      blocks: info.blocks,
+      headers: info.headers,
+      pruned: !!info.pruned,
+      chain: info.chain,
+      verificationprogress: info.verificationprogress
+    }
+  } catch (e) {
+    return { available: false, reason: e.message }
+  }
 }
 
 function getBlockCount() {
-  return parseInt(nodeCli(['getblockcount'], 10000), 10)
+  return 0
 }
 
-function getRawTx(txid) {
-  const hex = nodeCli(['getrawtransaction', String(txid)], 20000)
-  return String(hex).replace(/^"|"$/g, '').trim()
+async function scanAddress(address) {
+  const result = await rpc('scantxoutset', ['start', ['addr(' + address + ')']])
+  const unspents = (result && result.unspents) || []
+  const sats = Math.round(Number(result && result.total_amount || 0) * 1e8)
+  const utxos = unspents.map(function (u) {
+    return {
+      tx_hash: u.txid,
+      tx_pos: u.vout,
+      value: Math.round(Number(u.amount) * 1e8),
+      height: u.height
+    }
+  })
+  return { confirmed: sats, unconfirmed: 0, utxos: utxos, via: 'node' }
 }
 
-function sendRawTx(hex) {
-  const id = nodeCli(['sendrawtransaction', String(hex)], 30000)
-  return String(id).replace(/^"|"$/g, '').trim()
+async function sendRaw(hex) {
+  const txid = await rpc('sendrawtransaction', [hex])
+  return { via: 'node', txid: String(txid), body: String(txid) }
 }
 
 module.exports = {
   available,
-  nodeCli,
+  getStatus,
   getBlockCount,
-  getRawTx,
-  sendRawTx,
-  ROOT
+  scanAddress,
+  sendRaw,
+  rpc
 }
