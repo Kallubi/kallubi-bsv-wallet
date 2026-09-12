@@ -112,24 +112,50 @@ async function send(opts) {
   const WOC = wocBase(network)
   const utxos = await listUtxos(fromAddr, network)
   if (!utxos.length) throw new Error('Keine UTXOs')
-  const utxo = utxos[0]
-  const txidIn = utxo.tx_hash || utxo.txid || utxo.txHash
-  const vout = (utxo.tx_pos != null) ? utxo.tx_pos : utxo.vout
-  const value = Number(utxo.value)
-  if (!txidIn || vout == null || !value) throw new Error('UTXO unlesbar')
-  const change = value - sendSats - feeSats
-  if (change < 0) throw new Error('Zu wenig Guthaben')
-  const hexRes = await fetch(WOC + '/tx/' + txidIn + '/hex')
-  const txHex = (await hexRes.text()).trim().replace(/^"|"$/g, '')
-  if (!hexRes.ok || !txHex || txHex.length < 20) throw new Error('Source-TX fehlt')
-  const sourceTransaction = Transaction.fromHex(txHex)
-  const tx = new Transaction()
-  tx.addInput({
-    sourceTransaction: sourceTransaction,
-    sourceOutputIndex: vout,
-    unlockingScriptTemplate: new P2PKH().unlock(priv),
-    sequence: 0xffffffff
+
+  // Gather the coins this spend needs. Only the first UTXO used to be read, so a wallet whose
+  // balance sat across several coins reported 'Zu wenig Guthaben' while the funds were present.
+  // Largest first keeps the input count, and so the size and the fee, as small as the amount allows.
+  const usable = []
+  utxos.forEach(function (u) {
+    const txidIn = u.tx_hash || u.txid || u.txHash
+    const vout = (u.tx_pos != null) ? u.tx_pos : u.vout
+    const value = Number(u.value)
+    if (txidIn && vout != null && value > 0) {
+      usable.push({ txid: txidIn, vout: vout, value: value })
+    }
   })
+  if (!usable.length) throw new Error('UTXO unlesbar')
+  usable.sort(function (a, b) { return b.value - a.value })
+
+  const target = sendSats + feeSats
+  const picked = []
+  let selected = 0
+  for (let i = 0; i < usable.length && selected < target; i++) {
+    picked.push(usable[i])
+    selected += usable[i].value
+  }
+  const change = selected - sendSats - feeSats
+  if (change < 0) {
+    // Name the shortfall. A caller cannot act on 'not enough' without knowing by how much.
+    throw new Error('Zu wenig Guthaben: ' + selected + ' sat verfuegbar, ' + target + ' sat benoetigt')
+  }
+
+  const tx = new Transaction()
+  for (let i = 0; i < picked.length; i++) {
+    const coin = picked[i]
+    const hexRes = await fetch(WOC + '/tx/' + coin.txid + '/hex')
+    const txHex = (await hexRes.text()).trim().replace(/^"|"$/g, '')
+    if (!hexRes.ok || !txHex || txHex.length < 20) {
+      throw new Error('Source-TX fehlt: ' + coin.txid)
+    }
+    tx.addInput({
+      sourceTransaction: Transaction.fromHex(txHex),
+      sourceOutputIndex: coin.vout,
+      unlockingScriptTemplate: new P2PKH().unlock(priv),
+      sequence: 0xffffffff
+    })
+  }
   recs.forEach(function (r) {
     tx.addOutput({
       satoshis: r.satoshis,

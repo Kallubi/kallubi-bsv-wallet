@@ -68,18 +68,9 @@ function unlockTimelock(opts) {
   return true
 }
 
-function clearChainLocks() {
-  const list = loadLocks().filter(function (l) {
-    return l.type === 'app'
-  })
-  saveLocks(list)
-  return list.length
-}
-
 module.exports = {
   loadLocks,
   getLockedSats,
   createTimelock,
-  unlockTimelock,
-  clearChainLocks
+  unlockTimelock
 }
