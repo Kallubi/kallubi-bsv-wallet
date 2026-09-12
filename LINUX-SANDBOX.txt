@@ -1,13 +1,18 @@
 Kallubi Wallet – Linux sandbox
 
-Preferred start:
-  npm start
+Dev on this Ubuntu machine:
+  npm run start:linux-nosandbox
 
-If Electron aborts on chrome-sandbox:
+Why: Electron chrome-sandbox needs root-owned 4755 helper.
+Without that, Electron aborts. --no-sandbox is the documented fallback.
+
+Optional (this PC only, after every electron upgrade):
   sudo chown root:root node_modules/electron/dist/chrome-sandbox
   sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-  echo 1 | sudo tee /proc/sys/kernel/unprivileged_userns_clone
-  echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+  npm start
 
-Fallback only:
-  npm run start:linux-nosandbox
+Packaged AppImage: same FUSE + sandbox issue. Ship with
+  ./Kallubi-BSV-Wallet-*.AppImage --no-sandbox
+until a signed helper is in the image.
+
+Windows / macOS: use normal start, no --no-sandbox.

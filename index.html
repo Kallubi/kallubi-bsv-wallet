@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://api.whatsonchain.com https://status.kallubi-bsv-explorer.de https://api.coingecko.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Kallubi Wallet</title>
 <style>
@@ -111,7 +112,12 @@
   .addr-line{font-size:12px;word-break:break-all;color:var(--muted);margin:6px 0 10px}
 /* disc-kde-fix */
 #discOk{min-height:48px;min-width:220px}
-</style>
+
+.seed-confirm{align-items:center;gap:12px;margin:14px 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(201,168,76,.08)}
+.seed-confirm input[type=checkbox]{width:22px;height:22px;min-width:22px;accent-color:var(--gold);cursor:pointer}
+.seed-confirm span{font-size:14px;font-weight:600}
+
+  </style>
 </head>
 <body>
 <div class="app">
@@ -124,6 +130,12 @@
     <div class="status">
       <div id="stApi">API: —</div>
       <div id="stPrice">Price: —</div>
+      <div id="stNode">Node: —</div>
+      <select id="nodeSource" style="margin-top:8px;width:100%">
+        <option value="auto">Auto (Node then WoC)</option>
+        <option value="node">Kallubi Node only</option>
+        <option value="woc">WhatsOnChain only</option>
+      </select>
     </div>
     <div class="lang">
       <button type="button" id="btnDE">DE</button>
@@ -187,15 +199,25 @@
         </select>
         <label id="tNewPath">Path (BIP44)</label>
         <select id="newPathPreset" disabled>
-          <option value="m/44'/0'/0'/0/0">m/44'/0'/0'/0/0</option>
-          <option value="m/44'/236'/0'/0/0">m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0">Centi (BSV) · m/44'/0'/0'/0/0</option>
+          <option value="m/0'/0/0">RockWallet · m/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0">Ellipal · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0">ElectrumSV · m/44'/0'/0'/0/0</option>
+          <option value="m/0'">HandCash 1.x · m/0' (not HandCash 2.0)</option>
+          <option value="m/44'/145'/0'/0/0">simply.cash · m/44'/145'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0">RelayX · m/44'/236'/0'/0/0</option>
           <option value="custom">Custom…</option>
         </select>
         <input id="newPathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
+        <label id="tSeedLen">Seed length</label>
+        <select id="newSeedLen">
+          <option value="12">12 words</option>
+          <option value="24">24 words</option>
+        </select>
         <button type="button" class="btn primary" id="btnGenSeed">Generate seed</button>
         <div id="seedPreview" class="muted selectable" style="margin:8px 0"></div>
         <button type="button" class="btn small" id="btnCopySeed">Copy seed</button>
-        <label class="row"><input type="checkbox" id="seedConfirm" /> <span id="tSeedOk">I saved the seed offline</span></label>
+        <label class="row seed-confirm"><input type="checkbox" id="seedConfirm" /> <span id="tSeedOk">I saved the seed offline</span></label>
         <button type="button" class="btn primary" id="btnSaveNew">Save wallet</button>
         <div class="err" id="newErr"></div>
       </div>
@@ -214,10 +236,12 @@
         <label id="tPath">Path (BIP44)</label>
         <select id="restorePathPreset">
           <option value="m/44'/0'/0'/0/0">Centi (BSV) · m/44'/0'/0'/0/0</option>
-          <option value="m/44'/0'/0'/0/0">m/44'/0'/0'/0/0 (common)</option>
-          <option value="m/44'/236'/0'/0/0">m/44'/236'/0'/0/0 (BSV coin type)</option>
-          <option value="m/44'/0'/0'/0/1">m/44'/0'/0'/0/1</option>
-          <option value="m/0'/0/0">m/0'/0/0</option>
+          <option value="m/0'/0/0">RockWallet · m/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0">Ellipal · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0">ElectrumSV · m/44'/0'/0'/0/0</option>
+          <option value="m/0'">HandCash 1.x · m/0' (not HandCash 2.0)</option>
+          <option value="m/44'/145'/0'/0/0">simply.cash · m/44'/145'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0">RelayX · m/44'/236'/0'/0/0</option>
           <option value="custom">Custom…</option>
         </select>
         <input id="restorePathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
@@ -445,15 +469,17 @@
 </div>
 
 <script>
-const store = require('./wallet-store.cjs')
-const core = require('./wallet-core.cjs')
-const timelock = require('./wallet-timelock.cjs')
-const QRCode = require('qrcode')
-const jsQR = require('jsqr')
-const fs = require('fs')
-const path = require('path')
-const os = require('os')
-const { clipboard, shell } = require('electron')
+const api = window.kallubi
+if (!api) {
+  document.body.innerHTML = '<p style="padding:24px;color:#fff">Wallet bridge missing. Update main.js + preload.js.</p>'
+  throw new Error('no kallubi preload')
+}
+
+function copyText(x){ if(x) api.copy(String(x)) }
+
+const QRCode = {
+  toDataURL: function (text, opts) { return api.qrDataUrl({ text: text, width: opts && opts.width }) }
+}
 
 let lang = 'en'
 let network = 'main'
@@ -464,6 +490,7 @@ let hideBalance = false
 let priceUsd = null
 let autoTimer = null
 let pendingSend = null
+api.onLocked(function(){ session = null; document.getElementById('viewApp').classList.add('hidden'); document.getElementById('navApp').classList.add('hidden'); document.getElementById('viewLock').classList.remove('hidden'); renderWalletList() })
 
 const RECENT_KEY = 'kallubi_recent_addrs'
 const DISC_KEY = 'kallubi_disclaimer_ok_v1'
@@ -472,9 +499,9 @@ const I18N = {
   de: {
     unlock:'Entsperren', del:'Löschen', wallets:'WALLETS', pw:'Passwort',
     neu:'Neue Wallet', seed:'Aus Seed', back:'Zurück', name:'Name',
-    pwNew:'Passwort (min. 8)', pw2:'Passwort bestätigen', bip:'13. Wort (optional)',
+    pwNew:'Passwort (min. 8)', pw2:'Passwort bestätigen', bip:'Extra-Wort optional (13. / 25.)',
     gen:'Seed erzeugen', seedOk:'Seed offline gesichert', save:'Wallet speichern',
-    fromSeed:'AUS SEED', words:'12 Wörter', restore:'Wiederherstellen',
+    fromSeed:'AUS SEED', words:'12 oder 24 Wörter', seedLen:'Seed-Länge', restore:'Wiederherstellen',
     overview:'Übersicht', receive:'Empfangen', send:'Senden', history:'Verlauf',
     timelock:'Timelock', backup:'Backup', logout:'Abmelden', hide:'Verbergen', show:'Anzeigen',
     price:'BSV-PREIS', spendable:'VERFÜGBAR', refresh:'Aktualisieren', copy:'Kopieren',
@@ -510,9 +537,9 @@ const I18N = {
   en: {
     unlock:'Unlock', del:'Delete', wallets:'WALLETS', pw:'Password',
     neu:'New wallet', seed:'From seed', back:'Back', name:'Name',
-    pwNew:'Password (min. 8)', pw2:'Confirm password', bip:'13th word (optional passphrase)',
+    pwNew:'Password (min. 8)', pw2:'Confirm password', bip:'Optional extra word (13th / 25th)',
     gen:'Generate seed', seedOk:'I saved the seed offline', save:'Save wallet',
-    fromSeed:'FROM SEED', words:'12 words', restore:'Restore',
+    fromSeed:'FROM SEED', words:'12 or 24 words', seedLen:'Seed length', restore:'Restore',
     overview:'Overview', receive:'Receive', send:'Send', history:'History',
     timelock:'Timelock', backup:'Backup', logout:'Log out', hide:'Hide', show:'Show',
     price:'BSV PRICE', spendable:'SPENDABLE', refresh:'Refresh', copy:'Copy',
@@ -547,7 +574,24 @@ const I18N = {
   }
 }
 function t(k){ return (I18N[lang]&&I18N[lang][k])||k }
-function copyText(x){ if(x) clipboard.writeText(String(x)) }
+
+
+async function refreshNodeUi(){
+  const src = document.getElementById('nodeSource')
+  const lab = document.getElementById('stNode')
+  if (!lab && !src) return
+  try {
+    const st = await api.nodeStatus()
+    if (src) src.value = st.source || 'auto'
+    const ok = !!st.available
+    const txt = ok
+      ? ('Node: <span class="ok">#' + st.blocks + (st.pruned ? ' pruned' : '') + '</span>')
+      : ('Node: <span class="bad">' + (st.reason ? String(st.reason).slice(0,24) : 'offline') + '</span>')
+    if (lab) lab.innerHTML = txt
+  } catch (e) {
+    if (lab) lab.innerHTML = 'Node: <span class="bad">offline</span>'
+  }
+}
 
 function setStatus(apiOk, priceOk){
   document.getElementById('stApi').innerHTML = 'API: <span class="'+(apiOk?'ok':'bad')+'">'+(apiOk?'ok':'error')+'</span>'
@@ -617,7 +661,7 @@ function applyI18n() {
     tRecent:'recent', sendModalTitle:'sendTitle', sendYes:'sendConfirm', sendNo:'sendCancel',
     tExportTitle:'exportTitle', tExportHint:'exportHint', btnExportFile:'exportBtn',
     tImportTitle:'importTitle', tImportHint:'importHint', tImportName:'importName', tImportPw:'importPw',
-    btnDoImport:'importBtn', tDeriv:'deriv', tPath:'path', btnScanSeed:'scanBtn', tNewDeriv:'deriv', tNewPath:'path', discTitle:'discTitle', discAccept:'discAccept',
+    btnDoImport:'importBtn', tDeriv:'deriv', tPath:'path', btnScanSeed:'scanBtn', tNewDeriv:'deriv', tNewPath:'path', tSeedLen:'seedLen', discTitle:'discTitle', discAccept:'discAccept',
     tOverviewSub:'overviewSub', tAutoHint:'autoHint', tBackupSub:'backupSub', tSeedSection:'seedSection'
   }
   Object.keys(ids).forEach(function(id){
@@ -687,9 +731,18 @@ function showPanelForm(which){
   document.getElementById('btnBackList').classList.remove('hidden')
 }
 
-function renderWalletList(){
-  const list = store.listWallets(network)
+async function renderWalletList(){
   const box = document.getElementById('walletList')
+  const errEl = document.getElementById('lockErr')
+  let list = []
+  try {
+    list = await api.listWallets(network)
+    if (errEl && errEl.textContent && errEl.textContent.indexOf('List:') === 0) errEl.textContent = ''
+  } catch (e) {
+    if (errEl) errEl.textContent = 'List: ' + e.message
+    if (box) box.innerHTML = '<div class="err">' + e.message + '</div>'
+    return
+  }
   box.innerHTML = ''
   if (!list.length){
     const empty = document.createElement('div')
@@ -716,23 +769,11 @@ function renderWalletList(){
 function refreshLastVia(){
   var el = document.getElementById('lastVia')
   if (!el) return
-  try {
-    var fs = require('fs')
-    var os = require('os')
-    var path = require('path')
-    var line = fs.readFileSync(path.join(os.homedir(), '.kallubi-bsv-wallet', 'last-broadcast.txt'), 'utf8').trim()
-    var via = line.split(' ')[1] || ''
-    el.textContent = via === 'node'
-      ? (lang==='de' ? 'Letzter Broadcast: Kallubi BSV Node' : 'Last broadcast: Kallubi BSV Node')
-      : via === 'woc'
-        ? (lang==='de' ? 'Letzter Broadcast: API (WoC)' : 'Last broadcast: API (WoC)')
-        : line
-  } catch (e) { el.textContent = '' }
+  if (window.__lastVia) el.textContent = 'via ' + window.__lastVia
 }
 function pasteInto(id){
   try {
-    var { clipboard } = require('electron')
-    var txt = clipboard.readText() || ''
+    var txt = ''
     var el = document.getElementById(id)
     if (el) { el.focus(); el.value = txt; el.dispatchEvent(new Event('input')) }
   } catch (e) { console.log('paste fail', e.message) }
@@ -777,9 +818,19 @@ document.getElementById('balSats').textContent = '••••••'
 
 async function refreshBalance(){
   if (!session) return
-  const bal = await core.getBalance(session.address, network)
-  const locked = timelock.getLockedSats(session.address)
-  const total = (bal.confirmed||0) + (bal.unconfirmed||0)
+  let locked = 0
+  try { locked = Number(await api.lockedSats()) || 0 } catch (e) { locked = 0 }
+  let bal
+  try {
+    bal = await api.getBalance({ address: session.address, network: network })
+  } catch (e) {
+    var msg = String((e && e.message) || e)
+    document.getElementById('balFiat').textContent = /429/.test(msg)
+      ? (lang==='de' ? 'WoC-Limit – später Refresh' : 'WoC rate limit – try Refresh later')
+      : msg
+    return
+  }
+  const total = (Number(bal.confirmed)||0) + (Number(bal.unconfirmed)||0)
   setBalanceUi(Math.max(0, total - locked))
   document.getElementById('addrBox').textContent = session.address
   document.getElementById('recvAddr').textContent = session.address
@@ -799,6 +850,7 @@ function resetAutoLock(){
 }
 
 function logout(){
+  try { api.logout() } catch(e) {}
   session = null
   if (autoTimer) clearTimeout(autoTimer)
   document.getElementById('viewApp').classList.add('hidden')
@@ -906,19 +958,6 @@ function collectRecipients(){
   return list
 }
 
-function walletDir(){
-  return path.join(os.homedir(), '.kallubi-bsv-wallet', 'wallets', network === 'main' ? 'main' : 'test')
-}
-function findWalletFile(id){
-  const dir = walletDir()
-  const candidates = [id + '.enc.json', id + '.json']
-  for (let i = 0; i < candidates.length; i++) {
-    const p = path.join(dir, candidates[i])
-    if (fs.existsSync(p)) return p
-  }
-  return null
-}
-
 async function exportQrPng(){
   if (!session) return
   const url = await QRCode.toDataURL(session.address, { width: 512, margin: 2 })
@@ -933,48 +972,44 @@ async function loadHistory(){
   box.innerHTML = '<div class="muted">…</div>'
   try {
     const net = network === 'main' ? 'main' : 'test'
-    const api = 'https://api.whatsonchain.com/v1/bsv/' + net
-    const res = await fetch(api + '/address/' + session.address + '/history')
+    const woc = 'https://api.whatsonchain.com/v1/bsv/' + net
+    const res = await fetch(woc + '/address/' + session.address + '/history')
+    if (res.status === 429) {
+      box.innerHTML = '<div class="err">' + (lang==='de'?'WoC-Limit – History in 1 Min. nochmal Refresh':'WoC rate limit – wait 1 min, then Refresh') + '</div>'
+      return
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const data = await res.json()
     const list = Array.isArray(data) ? data.slice(0, 20) : []
     if (!list.length){ box.innerHTML = '<div class="muted">—</div>'; return }
     box.innerHTML = ''
-    const loc = lang === 'de' ? 'de-DE' : 'en-GB'
     for (let i = 0; i < list.length; i++) {
       const h = list[i]
       let when = ''
-      if (h.time) when = new Date(h.time*1000).toLocaleString(loc)
-      else if (h.tx_hash) {
-        try {
-          const tr = await fetch(api + '/tx/' + h.tx_hash)
-          if (tr.ok) {
-            const tx = await tr.json()
-            const ts = tx.time || tx.blocktime
-            if (ts) when = new Date(ts*1000).toLocaleString(loc)
-          }
-        } catch(e){}
-      }
-      if (!when && h.height) when = 'block ' + h.height
-      if (!when) when = '—'
+      if (h.time) when = new Date(h.time*1000).toLocaleString(lang==='de'?'de-DE':'en-GB')
+      else if (h.height) when = 'block ' + h.height
+      else when = '—'
       const txUrl = network === 'main' ? ('https://whatsonchain.com/tx/'+h.tx_hash) : ('https://test.whatsonchain.com/tx/'+h.tx_hash)
       const div = document.createElement('div'); div.className = 'hist-item'
       const top = document.createElement('div'); top.className = 'muted'
       top.textContent = when + (h.height ? (' · block ' + h.height) : '')
       const row = document.createElement('div'); row.className = 'row'
       const a = document.createElement('a'); a.href = '#'; a.textContent = (h.tx_hash||'').slice(0,20)+'…'
-      a.onclick = function(ev){ ev.preventDefault(); shell.openExternal(txUrl) }
+      a.onclick = function(ev){ ev.preventDefault(); window.kallubi.openExternal(txUrl) }
       const c = document.createElement('button'); c.type = 'button'; c.className = 'btn small'; c.textContent = t('copy')
       c.onclick = function(){ copyText(h.tx_hash) }
       row.appendChild(a); row.appendChild(c)
       div.appendChild(top); div.appendChild(row)
       box.appendChild(div)
     }
-  } catch(e){ box.innerHTML = '<div class="err">'+e.message+'</div>' }
+  } catch(e){
+    var msg = String((e && e.message) || e)
+    box.innerHTML = '<div class="err">' + (/429/.test(msg) ? (lang==='de'?'WoC-Limit – später Refresh':'WoC rate limit – try later') : msg) + '</div>'
+  }
 }
 
-function renderLocks(){
-  const list = timelock.loadLocks().filter(function(l){ return l.address === session.address })
+async function renderLocks(){
+  const list = await api.locks()
   const box = document.getElementById('tlList')
   if (!list.length){ box.textContent = t('noLocks'); return }
   box.innerHTML = ''
@@ -990,8 +1025,8 @@ function renderLocks(){
     const info = document.createElement('div'); info.textContent = l.lockSats + ' sats · ' + leftTxt
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn small'
     btn.textContent = lang==='de'?'Einlösen':'Unlock'; btn.disabled = left > 0
-    btn.onclick = function(){
-      try { timelock.unlockTimelock({ lockEntry:l }); renderLocks(); refreshBalance() }
+    btn.onclick = async function(){
+      try { await api.unlockLock({ lockEntry: l }); await renderLocks(); refreshBalance() }
       catch(e){ document.getElementById('tlErr').textContent = e.message }
     }
     div.appendChild(info); div.appendChild(btn); box.appendChild(div)
@@ -999,10 +1034,12 @@ function renderLocks(){
 }
 
 async function doBroadcast(recipients, fee){
-  const r = await core.send({
-    priv: session.priv, fromAddr: session.address, recipients: recipients,
-    feeSats: fee, network: network
+  const r = await api.send({
+    recipients: recipients,
+    feeSats: fee
   })
+  window.__lastVia = r.via || ''
+
   recipients.forEach(function(x){ saveRecent(x.address) })
   const txUrl = network === 'main' ? ('https://whatsonchain.com/tx/'+r.txid) : ('https://test.whatsonchain.com/tx/'+r.txid)
   const wrap = document.getElementById('sendOk')
@@ -1010,7 +1047,7 @@ async function doBroadcast(recipients, fee){
   wrap.textContent = ''
   wrap.appendChild(document.createTextNode(t('sendSuccess') + ' · ' + (r.via || '?') + ' · ' + r.txid.slice(0, 18) + '… '))
   const open = document.createElement('button'); open.type = 'button'; open.className = 'btn small'; open.textContent = 'Explorer'
-  open.onclick = function(){ shell.openExternal(txUrl) }
+  open.onclick = function(){ api.openExternal(txUrl) }
   const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'btn small'; cp.textContent = t('copy')
   cp.onclick = function(){ copyText(r.txid) }
   wrap.appendChild(open); wrap.appendChild(cp)
@@ -1018,6 +1055,13 @@ async function doBroadcast(recipients, fee){
   return r
 }
 
+if (document.getElementById('nodeSource')) {
+  document.getElementById('nodeSource').onchange = async function(){
+    try { await api.nodeSetSource({ source: this.value }); await refreshNodeUi() }
+    catch(e){ if (document.getElementById('nodeState')) document.getElementById('nodeState').textContent = e.message }
+  }
+}
+try { refreshNodeUi() } catch(e) {}
 document.getElementById('btnDE').onclick = function(){ lang='de'; document.getElementById('btnDE').classList.add('active'); document.getElementById('btnEN').classList.remove('active'); applyI18n() }
 document.getElementById('btnEN').onclick = function(){ lang='en'; document.getElementById('btnEN').classList.add('active'); document.getElementById('btnDE').classList.remove('active'); applyI18n() }
 document.getElementById('btnNetMain').onclick = function(){ setNetwork('main') }
@@ -1026,7 +1070,7 @@ document.getElementById('btnBackList').onclick = showPanelList
 document.getElementById('btnNew').onclick = function(){ showPanelForm('new') }
 document.getElementById('btnSeed').onclick = function(){ showPanelForm('seed') }
 document.getElementById('btnWif').onclick = function(){ showPanelForm('wif') }
-document.getElementById('btnDoWif').onclick = function(){
+document.getElementById('btnDoWif').onclick = async function(){
   document.getElementById('wifErr').textContent = ''
   try {
     const name = document.getElementById('wifName').value.trim()
@@ -1035,7 +1079,7 @@ document.getElementById('btnDoWif').onclick = function(){
     const p2 = document.getElementById('wifPw2').value
     if (!name) throw new Error(lang==='de' ? 'Name fehlt' : 'Name required')
     if (p1 !== p2) throw new Error(lang==='de' ? 'Passwörter ungleich' : 'Passwords differ')
-    store.importFromWif(name, p1, key, network)
+    await api.importWif({ name: name, password: p1, rawKey: key, network: network })
     document.getElementById('wifKey').value = ''
     document.getElementById('wifPw').value = ''
     document.getElementById('wifPw2').value = ''
@@ -1062,16 +1106,16 @@ document.querySelectorAll('[data-fee]').forEach(function(b){
   }
 })
 
-document.getElementById('qrFile').onchange = function(ev){
+document.getElementById('qrFile').onchange = async function(ev){
   const file = ev.target.files && ev.target.files[0]
   document.getElementById('qrFileName').textContent = (file && file.name) || t('noFile')
   if (!file) return
   const img = new Image(); const url = URL.createObjectURL(file)
-  img.onload = function(){
+  img.onload = async function(){
     const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
     const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const code = jsQR(imageData.data, imageData.width, imageData.height)
+    const code = await api.decodeQr({ width: imageData.width, height: imageData.height, data: Array.from(imageData.data) })
     URL.revokeObjectURL(url)
     if (!code || !code.data) {
       document.getElementById('sendErr').textContent = lang==='de'?'Kein QR erkannt':'No QR found'
@@ -1091,7 +1135,7 @@ document.getElementById('importFile').onchange = function(ev){
   document.getElementById('importFileName').textContent = (file && file.name) || t('noFile')
 }
 
-document.getElementById('btnGenSeed').onclick = function(){
+document.getElementById('btnGenSeed').onclick = async function(){
   document.getElementById('newErr').textContent = ''
   try {
     const bip = document.getElementById('newBip').value
@@ -1103,7 +1147,8 @@ document.getElementById('btnGenSeed').onclick = function(){
         derivPath = pr === 'custom' ? document.getElementById('newPathCustom').value.trim() : pr
       }
     }
-    const g = store.generateNewSeedWallet(bip, network, mode, derivPath)
+    const words = document.getElementById('newSeedLen') ? Number(document.getElementById('newSeedLen').value) : 12
+    const g = await api.generateSeed({ passphrase: bip, network: network, mode: mode, path: derivPath, words: words })
     pendingSeed = { mnemonic:g.mnemonic, bip:bip, mode:mode, path:derivPath }
     document.getElementById('seedPreview').textContent = g.mnemonic
   } catch(e){ document.getElementById('newErr').textContent = e.message }
@@ -1111,7 +1156,7 @@ document.getElementById('btnGenSeed').onclick = function(){
 document.getElementById('btnCopySeed').onclick = function(){ copyText(document.getElementById('seedPreview').textContent) }
 document.getElementById('btnCopyBackupSeed').onclick = function(){ copyText(document.getElementById('backupSeed').textContent) }
 
-document.getElementById('btnSaveNew').onclick = function(){
+document.getElementById('btnSaveNew').onclick = async function(){
   document.getElementById('newErr').textContent = ''
   try {
     if (!pendingSeed) throw new Error(lang==='de'?'Zuerst Seed erzeugen':'Generate seed first')
@@ -1120,7 +1165,7 @@ document.getElementById('btnSaveNew').onclick = function(){
     const p1 = document.getElementById('newPw').value
     const p2 = document.getElementById('newPw2').value
     if (p1 !== p2) throw new Error(lang==='de'?'Passwörter ungleich':'Passwords differ')
-    store.saveNewWallet(name, p1, pendingSeed.mnemonic, pendingSeed.bip, network, pendingSeed.mode || 'kallubi', pendingSeed.path || 'kallubi')
+    await api.saveNewWallet({ name: name, password: p1, mnemonic: pendingSeed.mnemonic, passphrase: pendingSeed.bip, network: network, mode: pendingSeed.mode || 'kallubi', path: pendingSeed.path || 'kallubi' })
     showPanelList(); renderWalletList()
   } catch(e){ document.getElementById('newErr').textContent = e.message }
 }
@@ -1153,8 +1198,7 @@ document.getElementById('btnScanSeed').onclick = async function(){
     const mn = document.getElementById('restoreMnemonic').value.trim()
     const bip = document.getElementById('restoreBip').value
     if (!mn) throw new Error((typeof t==='function' && t('enterSeed')) || (lang==='de' ? 'Seed eingeben' : 'Enter seed'))
-    const core = require('./wallet-core.cjs')
-    const rows = await store.scanMnemonic(mn, bip, network, (addr, net) => core.getBalance(addr, net))
+    const rows = await api.scanMnemonic({ mnemonic: mn, passphrase: bip, network: network })
     if (!rows.length) {
       document.getElementById('scanResults').textContent = 'No paths'
       return
@@ -1198,7 +1242,7 @@ document.getElementById('btnScanSeed').onclick = async function(){
     document.getElementById('seedErr').textContent = e.message
   }
 }
-document.getElementById('btnRestore').onclick = function(){
+document.getElementById('btnRestore').onclick = async function(){
   document.getElementById('seedErr').textContent = ''
   try {
     const name = document.getElementById('restoreName').value.trim()
@@ -1220,7 +1264,7 @@ document.getElementById('btnRestore').onclick = function(){
       mode = scanPick.mode === 'bip44' ? 'bip44' : 'kallubi'
       derivPath = scanPick.path
     }
-    store.restoreFromMnemonic(name, p1, mn, bip, network, mode, derivPath)
+    await api.restoreWallet({ name: name, password: p1, mnemonic: mn, passphrase: bip, network: network, mode: mode, path: derivPath })
     scanPick = null
     showPanelList(); renderWalletList()
   } catch(e){ document.getElementById('seedErr').textContent = e.message }
@@ -1232,7 +1276,7 @@ document.getElementById('btnUnlock').onclick = async function(){
   document.getElementById('lockErr').textContent = ''
   try {
     if (!selectedId) throw new Error(lang==='de'?'Wallet wählen':'Select wallet')
-    session = store.unlockWallet(selectedId, document.getElementById('pwUnlock').value, network)
+    session = await api.unlockWallet({ id: selectedId, password: document.getElementById('pwUnlock').value, network: network })
     document.getElementById('viewLock').classList.add('hidden')
     document.getElementById('viewApp').classList.remove('hidden')
     document.getElementById('navApp').classList.remove('hidden')
@@ -1248,7 +1292,7 @@ document.getElementById('btnUnlock').onclick = async function(){
   } catch(e){ document.getElementById('lockErr').textContent = e.message }
 }
 
-document.getElementById('btnDeleteWallet').onclick = function(){
+document.getElementById('btnDeleteWallet').onclick = async function(){
   document.getElementById('lockErr').textContent = ''
   try {
     if (!selectedId) throw new Error(lang==='de'?'Wallet wählen':'Select wallet')
@@ -1257,10 +1301,10 @@ document.getElementById('btnDeleteWallet').onclick = function(){
   } catch(e){ document.getElementById('lockErr').textContent = e.message }
 }
 document.getElementById('delNo').onclick = function(){ document.getElementById('delModal').classList.add('hidden') }
-document.getElementById('delYes').onclick = function(){
+document.getElementById('delYes').onclick = async function(){
   document.getElementById('delModal').classList.add('hidden')
   try {
-    store.deleteWallet(selectedId, document.getElementById('pwUnlock').value, network)
+    await api.deleteWallet({ id: selectedId, password: document.getElementById('pwUnlock').value, network: network })
     selectedId = null
     document.getElementById('pwUnlock').value = ''
     renderWalletList()
@@ -1285,11 +1329,11 @@ document.getElementById('btnHistRefresh').onclick = loadHistory
 document.getElementById('btnTlRefresh').onclick = renderLocks
 document.getElementById('autoLockMin').onchange = resetAutoLock
 
-document.getElementById('btnSaveNote').onclick = function(){
+document.getElementById('btnSaveNote').onclick = async function(){
   document.getElementById('noteOk').textContent = ''
   try {
     const note = document.getElementById('walletNote').value
-    store.updateWalletMeta(session.id, { note: note }, network)
+    await api.updateMeta({ id: session.id, patch: { note: note }, network: network })
     session.note = note
     document.getElementById('noteOk').textContent = lang==='de'?'Gespeichert':'Saved'
   } catch(e){ document.getElementById('noteOk').textContent = e.message }
@@ -1302,8 +1346,8 @@ document.getElementById('btnSend').onclick = async function(){
   try {
     const recipients = collectRecipients()
     const fee = Number(document.getElementById('sendFee').value)||500
-    const locked = timelock.getLockedSats(session.address)
-    const bal = await core.getBalance(session.address, network)
+    const locked = Number(await api.lockedSats()) || 0
+    const bal = await api.getBalance({ address: session.address, network: network })
     const total = (bal.confirmed||0)+(bal.unconfirmed||0)
     const sum = recipients.reduce(function(s,r){ return s+r.satoshis },0)
     const need = sum + fee
@@ -1333,96 +1377,60 @@ document.getElementById('sendNo').onclick = function(){ document.getElementById(
 document.getElementById('sendYes').onclick = async function(){
   document.getElementById('sendModal').classList.add('hidden')
   if (!pendingSend) return
+  const yes = document.getElementById('sendYes')
+  const sendBtn = document.getElementById('btnSend')
+  if (yes) yes.disabled = true
+  if (sendBtn) sendBtn.disabled = true
   try { await doBroadcast(pendingSend.recipients, pendingSend.fee) }
   catch(e){ document.getElementById('sendErr').textContent = e.message }
   pendingSend = null
+  if (yes) yes.disabled = false
+  if (sendBtn) sendBtn.disabled = false
   resetAutoLock()
 }
 
-document.getElementById('btnTlLock').onclick = function(){
+document.getElementById('btnTlLock').onclick = async function(){
   document.getElementById('tlErr').textContent = ''
   try {
     const hours = Number(document.getElementById('tlHours').value)
     const sats = Number(document.getElementById('tlSats').value)
     if (!(hours > 0)) throw new Error(t('hoursInvalid'))
     if (!(sats > 0)) throw new Error(t('amountInvalid'))
-    timelock.createTimelock({ address: session.address, lockSats: sats, hours: hours })
+    await api.createLock({ lockSats: sats, hours: hours })
     renderLocks(); refreshBalance().catch(function(){})
   } catch(e){ document.getElementById('tlErr').textContent = e.message }
 }
 
-document.getElementById('btnShowSeed').onclick = function(){
+document.getElementById('btnShowSeed').onclick = async function(){
   document.getElementById('backupErr').textContent = ''
   try {
     document.getElementById('backupSeed').textContent =
-      store.revealMnemonic(session.id, document.getElementById('backupPw').value, network)
+      await api.revealMnemonic({ id: session.id, password: document.getElementById('backupPw').value, network: network })
   } catch(e){ document.getElementById('backupErr').textContent = e.message }
 }
 
-document.getElementById('btnExportFile').onclick = function(){
+document.getElementById('btnExportFile').onclick = async function(){
   document.getElementById('exportOk').textContent = ''
   document.getElementById('exportErr').textContent = ''
   try {
-    if (!session) throw new Error('No session')
-    const src = findWalletFile(session.id)
-    if (!src) throw new Error('Wallet file not found')
-    const dl = path.join(os.homedir(), 'Downloads')
-    if (!fs.existsSync(dl)) fs.mkdirSync(dl, { recursive: true })
-    const dest = path.join(dl, 'kallubi-' + session.id + '-export.json')
-    const payload = {
-      type: 'kallubi-wallet-export', v: 1, network: network, id: session.id,
-      name: session.name || '', address: session.address, exportedAt: new Date().toISOString(),
-      encrypted: JSON.parse(fs.readFileSync(src, 'utf8'))
-    }
-    fs.writeFileSync(dest, JSON.stringify(payload, null, 2))
-    document.getElementById('exportOk').textContent = dest
+    await api.exportEncrypted()
+    document.getElementById('exportOk').textContent = lang==='de' ? 'Export gespeichert' : 'Export saved'
   } catch(e){ document.getElementById('exportErr').textContent = e.message }
 }
 
-document.getElementById('btnDoImport').onclick = function(){
+document.getElementById('btnDoImport').onclick = async function(){
   document.getElementById('importErr').textContent = ''
   document.getElementById('importOk').textContent = ''
   try {
-    const file = document.getElementById('importFile').files && document.getElementById('importFile').files[0]
-    if (!file) throw new Error(lang==='de'?'Datei wählen':'Choose a file')
     const name = document.getElementById('importName').value.trim() || 'Imported'
     const pw = document.getElementById('importPw').value
     if (!pw) throw new Error(lang==='de'?'Passwort nötig':'Password required')
-    const data = JSON.parse(fs.readFileSync(file.path, 'utf8'))
-    const dir = walletDir()
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    let id, encObj
-    if (data.type === 'kallubi-wallet-export' && data.encrypted) {
-      id = data.id || ('imp_' + Date.now().toString(36))
-      encObj = data.encrypted
-      if (data.network && data.network !== network) throw new Error('Network mismatch: file is ' + data.network)
-    } else if (data.v && data.salt && data.data) {
-      id = 'imp_' + Date.now().toString(36)
-      encObj = data
-    } else throw new Error('Unknown export format')
-    const dest = path.join(dir, id + '.enc.json')
-    fs.writeFileSync(dest, JSON.stringify(encObj, null, 2))
-    const listPath = path.join(dir, 'index.json')
-    let list = []
-    if (fs.existsSync(listPath)) {
-      try { list = JSON.parse(fs.readFileSync(listPath, 'utf8')); if (!Array.isArray(list)) list = list.wallets || [] } catch(e){ list = [] }
-    }
-    let address = data.address || ''
-    try {
-      list = list.filter(function(w){ return w.id !== id })
-      list.push({ id: id, name: name, address: address || 'pending', hasPassphrase: false, network: network, created: new Date().toISOString() })
-      fs.writeFileSync(listPath, JSON.stringify(list, null, 2))
-      const unlocked = store.unlockWallet(id, pw, network)
-      address = unlocked.address
-      try { store.updateWalletMeta(id, { name: name }, network) } catch(e){}
-      document.getElementById('importOk').textContent = (lang==='de'?'Import ok: ':'Import ok: ') + address
-      renderWalletList()
-    } catch(e){
-      try { fs.unlinkSync(dest) } catch(x){}
-      throw e
-    }
+    const address = await api.importEncrypted({ name: name, password: pw, network: network })
+    document.getElementById('importOk').textContent = (lang==='de'?'Import ok: ':'Import ok: ') + address
+    renderWalletList()
   } catch(e){ document.getElementById('importErr').textContent = e.message }
 }
+
 
 document.getElementById('discOk').onclick = function(){
   document.getElementById('discErr').textContent = ''

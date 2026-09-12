@@ -1,4 +1,5 @@
 const { P2PKH, Transaction } = require('@bsv/sdk')
+const settings = require('./wallet-settings.cjs')
 
 function wocBase(network) {
   return network === 'main'
@@ -65,6 +66,17 @@ async function broadcastWoc(raw, network) {
 }
 
 async function broadcastRaw(raw, network) {
+  const src = (settings.load().source || 'auto')
+  if (network === 'main' && src === 'node') {
+    const nodeMod = require('./wallet-node.cjs')
+    return nodeMod.sendRaw(raw)
+  }
+  if (network === 'main' && src === 'auto') {
+    try {
+      const nodeMod = require('./wallet-node.cjs')
+      return await nodeMod.sendRaw(raw)
+    } catch (e) { /* explorer / WOC */ }
+  }
   if (network === 'main') {
     try { return await broadcastKallubi(raw) } catch (e) { /* WOC fallback */ }
   }

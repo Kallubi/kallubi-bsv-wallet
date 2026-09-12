@@ -7,10 +7,9 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "start:linux-nosandbox": "electron . --no-sandbox",
     "pack:linux": "electron-builder --linux AppImage",
     "pack:win": "electron-builder --win portable",
-    "pack:mac": "electron-builder --mac dir"
+    "start:linux-nosandbox": "electron . --no-sandbox"
   },
   "dependencies": {
     "@bsv/sdk": "^1.0.0",
@@ -37,21 +36,19 @@
       "!**/wallets/**"
     ],
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Finance",
       "artifactName": "Kallubi-BSV-Wallet-${version}-linux-x64.${ext}",
       "icon": "logo.png"
     },
     "win": {
-      "target": ["portable"],
+      "target": [
+        "portable"
+      ],
       "artifactName": "Kallubi-BSV-Wallet-${version}-win-x64.${ext}",
       "icon": "logo.png"
-    },
-    "mac": {
-      "target": ["dir"],
-      "artifactName": "Kallubi-BSV-Wallet-${version}-mac-${arch}.${ext}",
-      "icon": "logo.png",
-      "category": "public.app-category.finance"
     }
   }
 }

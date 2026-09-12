@@ -10,7 +10,14 @@ const DATA_ROOT = path.join(os.homedir(), '.kallubi-bsv-wallet')
 const WALLETS_ROOT = path.join(DATA_ROOT, 'wallets')
 
 function ensureDir(p) {
-  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })
+  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true, mode: 0o700 })
+  try { fs.chmodSync(p, 0o700) } catch (e) {}
+}
+function writeSecure(file, text) {
+  const tmp = file + '.tmp'
+  fs.writeFileSync(tmp, text, { mode: 0o600 })
+  fs.renameSync(tmp, file)
+  try { fs.chmodSync(file, 0o600) } catch (e) {}
 }
 function netKey(network) {
   return network === 'main' ? 'main' : 'test'
@@ -38,7 +45,7 @@ function readIndex(network) {
 }
 function writeIndex(network, list) {
   ensureDir(networkDir(network))
-  fs.writeFileSync(indexFile(network), JSON.stringify(list, null, 2))
+  writeSecure(indexFile(network), JSON.stringify(list, null, 2))
 }
 
 function addressFromPriv(priv, network) {
@@ -62,16 +69,22 @@ function deriveKey(mnemonic, passphrase, network, mode, derivPath) {
   }
 }
 
+function scryptKey(password, salt, version) {
+  const opts = Number(version) >= 2
+    ? { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 }
+    : { N: 16384, r: 8, p: 1 }
+  return crypto.scryptSync(password, salt, 32, opts)
+}
 function encryptJson(obj, password) {
   const salt = crypto.randomBytes(16)
   const iv = crypto.randomBytes(12)
-  const key = crypto.scryptSync(password, salt, 32)
+  const key = scryptKey(password, salt, 2)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
   const plain = Buffer.from(JSON.stringify(obj), 'utf8')
   const enc = Buffer.concat([cipher.update(plain), cipher.final()])
   const tag = cipher.getAuthTag()
   return {
-    v: 1,
+    v: 2,
     salt: salt.toString('hex'),
     iv: iv.toString('hex'),
     tag: tag.toString('hex'),
@@ -83,7 +96,7 @@ function decryptJson(payload, password) {
   const iv = Buffer.from(payload.iv, 'hex')
   const tag = Buffer.from(payload.tag, 'hex')
   const data = Buffer.from(payload.data, 'hex')
-  const key = crypto.scryptSync(password, salt, 32)
+  const key = scryptKey(password, salt, payload.v || 1)
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
   decipher.setAuthTag(tag)
   const plain = Buffer.concat([decipher.update(data), decipher.final()])
@@ -105,8 +118,9 @@ function listWallets(network) {
   })
 }
 
-function generateNewSeedWallet(passphrase, network, mode, derivPath) {
-  const mnemonic = bip39.generateMnemonic(128)
+function generateNewSeedWallet(passphrase, network, mode, derivPath, words) {
+  const bits = Number(words) === 24 ? 256 : 128
+  const mnemonic = bip39.generateMnemonic(bits)
   const d = deriveKey(mnemonic, passphrase || '', network, mode || 'kallubi', derivPath)
   return {
     mnemonic: mnemonic,
@@ -132,7 +146,7 @@ function saveNewWallet(name, password, mnemonic, passphrase, network, mode, deri
     derivationMode: d.derivationMode,
     derivationPath: d.derivationPath
   }, password)
-  fs.writeFileSync(walletFile(network, id), JSON.stringify(payload, null, 2))
+  writeSecure(walletFile(network, id), JSON.stringify(payload, null, 2))
   const list = readIndex(network)
   list.push({
     id: id,
@@ -266,7 +280,7 @@ function importFromWif(name, password, rawKey, network) {
     derivationMode: 'wif',
     derivationPath: 'wif'
   }, password)
-  fs.writeFileSync(walletFile(network, id), JSON.stringify(payload, null, 2))
+  writeSecure(walletFile(network, id), JSON.stringify(payload, null, 2))
   const list = readIndex(network)
   list.push({
     id: id,
