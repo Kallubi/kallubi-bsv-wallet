@@ -2,9 +2,9 @@ const { P2PKH, Transaction } = require('@bsv/sdk')
 const settings = require('./wallet-settings.cjs')
 
 function wocBase(network) {
-  return network === 'main'
-    ? 'https://api.whatsonchain.com/v1/bsv/main'
-    : 'https://api.whatsonchain.com/v1/bsv/test'
+  const n = String(network || '')
+  if (n === 'test' || n === 'testnet') return 'https://api.whatsonchain.com/v1/bsv/test'
+  return 'https://api.whatsonchain.com/v1/bsv/main'
 }
 
 const KALLUBI_BROADCAST = 'https://status.kallubi-bsv-explorer.de/broadcast'
@@ -99,54 +99,137 @@ function normRecipients(opts) {
   return list
 }
 
+function utxoValue(u) {
+  return Number(u && u.value) || 0
+}
+
+function utxoId(u) {
+  return {
+    txid: u.tx_hash || u.txid || u.txHash,
+    vout: (u.tx_pos != null) ? u.tx_pos : u.vout,
+    value: utxoValue(u)
+  }
+}
+
+/** Largest first until amount+fee is covered. */
+function selectCoins(utxos, need) {
+  const list = (utxos || []).slice().sort(function (a, b) {
+    return utxoValue(b) - utxoValue(a)
+  })
+  const chosen = []
+  let sum = 0
+  for (let i = 0; i < list.length; i++) {
+    const id = utxoId(list[i])
+    if (!id.txid || id.vout == null || !id.value) continue
+    chosen.push(list[i])
+    sum += id.value
+    if (sum >= need) return { chosen: chosen, sum: sum }
+  }
+  return { chosen: chosen, sum: sum }
+}
+
+function coinKey(u) {
+  const id = utxoId(u)
+  return id.txid + ':' + id.vout
+}
+
+function gatherWork(opts, network) {
+  const work = []
+  if (Array.isArray(opts.sources) && opts.sources.length) {
+    opts.sources.forEach(function (s) {
+      const list = s.utxos || []
+      list.forEach(function (u) {
+        if (!s.priv) return
+        work.push({ u: u, priv: s.priv, address: s.address })
+      })
+    })
+  }
+  if (!work.length && opts.priv && opts.fromAddr && Array.isArray(opts._utxos)) {
+    opts._utxos.forEach(function (u) {
+      work.push({ u: u, priv: opts.priv, address: opts.fromAddr })
+    })
+  }
+  return work
+}
+
 async function send(opts) {
   opts = opts || {}
   const priv = opts.priv
   const fromAddr = opts.fromAddr
   const network = opts.network || 'main'
-  const feeSats = Number(opts.feeSats != null ? opts.feeSats : (opts.fee != null ? opts.fee : 500))
   const recs = normRecipients(opts)
-  if (!priv || !fromAddr) throw new Error('Send: missing wallet')
   if (!recs.length) throw new Error('Send: no recipients')
   const sendSats = recs.reduce(function (s, r) { return s + r.satoshis }, 0)
   const WOC = wocBase(network)
-  const utxos = await listUtxos(fromAddr, network)
-  if (!utxos.length) throw new Error('Keine UTXOs')
-  const utxo = utxos[0]
-  const txidIn = utxo.tx_hash || utxo.txid || utxo.txHash
-  const vout = (utxo.tx_pos != null) ? utxo.tx_pos : utxo.vout
-  const value = Number(utxo.value)
-  if (!txidIn || vout == null || !value) throw new Error('UTXO unlesbar')
-  const change = value - sendSats - feeSats
-  if (change < 0) throw new Error('Zu wenig Guthaben')
-  const hexRes = await fetch(WOC + '/tx/' + txidIn + '/hex')
-  const txHex = (await hexRes.text()).trim().replace(/^"|"$/g, '')
-  if (!hexRes.ok || !txHex || txHex.length < 20) throw new Error('Source-TX fehlt')
-  const sourceTransaction = Transaction.fromHex(txHex)
-  const tx = new Transaction()
-  tx.addInput({
-    sourceTransaction: sourceTransaction,
-    sourceOutputIndex: vout,
-    unlockingScriptTemplate: new P2PKH().unlock(priv),
-    sequence: 0xffffffff
+
+  let work = gatherWork(opts, network)
+  if (!work.length) {
+    if (!priv || !fromAddr) throw new Error('Send: missing wallet')
+    const utxos = await listUtxos(fromAddr, network)
+    utxos.forEach(function (u) {
+      work.push({ u: u, priv: priv, address: fromAddr })
+    })
+  }
+  if (!work.length) throw new Error('Keine UTXOs')
+
+  const nGuess = Math.min(work.length, 40)
+  const feeSats = Number(opts.feeSats != null ? opts.feeSats : (opts.fee != null ? opts.fee : (500 + nGuess * 80)))
+  if (!(feeSats >= 0)) throw new Error('Send: bad fee')
+  const need = sendSats + feeSats
+  const picked = selectCoins(work.map(function (w) { return w.u }), need)
+  if (picked.sum < need) throw new Error('Insufficient funds')
+
+  const used = {}
+  const chosenWork = []
+  picked.chosen.forEach(function (u) {
+    const k = coinKey(u)
+    const hit = work.find(function (w) { return !used[coinKey(w.u)] && coinKey(w.u) === k })
+    if (hit) {
+      used[k] = true
+      chosenWork.push(hit)
+    }
   })
+  if (chosenWork.length !== picked.chosen.length) throw new Error('UTXO/key mismatch')
+
+  const tx = new Transaction()
+  for (let i = 0; i < chosenWork.length; i++) {
+    const id = utxoId(chosenWork[i].u)
+    const hexRes = await fetch(WOC + '/tx/' + id.txid + '/hex')
+    const txHex = (await hexRes.text()).trim().replace(/^"|"$/g, '')
+    if (!hexRes.ok || !txHex || txHex.length < 20) throw new Error('Source-TX fehlt')
+    const sourceTransaction = Transaction.fromHex(txHex)
+    tx.addInput({
+      sourceTransaction: sourceTransaction,
+      sourceOutputIndex: id.vout,
+      unlockingScriptTemplate: new P2PKH().unlock(chosenWork[i].priv),
+      sequence: 0xffffffff
+    })
+  }
   recs.forEach(function (r) {
     tx.addOutput({
       satoshis: r.satoshis,
       lockingScript: new P2PKH().lock(r.address)
     })
   })
-  if (change >= 546) {
+  const change = picked.sum - sendSats - feeSats
+  const changeAddr = fromAddr || (chosenWork[0] && chosenWork[0].address)
+  if (change >= 546 && changeAddr) {
     tx.addOutput({
       satoshis: change,
-      lockingScript: new P2PKH().lock(fromAddr)
+      lockingScript: new P2PKH().lock(changeAddr)
     })
   }
   await tx.sign()
   const raw = tx.toHex()
   const signedId = tx.id('hex')
   const br = await broadcastRaw(raw, network)
-  return { txid: br.txid || signedId, body: br.body || '', via: br.via || 'unknown' }
+  return {
+    txid: br.txid || signedId,
+    body: br.body || '',
+    via: br.via || 'unknown',
+    inputs: chosenWork.length,
+    fromAddresses: chosenWork.map(function (w) { return w.address }).filter(function (a, i, arr) { return arr.indexOf(a) === i })
+  }
 }
 
-module.exports = { getBalance, listUtxos, send, wocBase, broadcastRaw }
+module.exports = { getBalance, listUtxos, send, wocBase, broadcastRaw, selectCoins }

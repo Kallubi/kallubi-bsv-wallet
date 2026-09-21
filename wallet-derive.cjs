@@ -69,12 +69,6 @@ const SCAN_PATHS = [
   "m/44'/0'/0'/0/29",
   /* END_CENTI */
   'kallubi',
-  "m/44'/0'/0'/0/0",
-  "m/44'/0'/0'/0/1",
-  "m/44'/0'/0'/0/2",
-  "m/44'/0'/0'/0/3",
-  "m/44'/0'/0'/0/4",
-  "m/44'/0'/0'/0/5",
   "m/44'/236'/0'/0/0",
   "m/44'/236'/0'/0/1",
   "m/44'/236'/0'/0/2",
@@ -86,17 +80,11 @@ const SCAN_PATHS = [
   "m/0'/0/1",
   "m/44'/145'/0'/0/0",
   "m/44'/145'/0'/0/1",
-  "m/44'/0'/0'/0/6",
-  "m/44'/0'/0'/0/7",
-  "m/44'/0'/0'/0/8",
-  "m/44'/0'/0'/0/9",
   "m/44'/236'/0'/0/3",
   "m/44'/236'/0'/0/4",
   "m/44'/236'/0'/0/5",
   "m/44'/0'/1'/0/0",
-  "m/44'/0'/0'/1/0",
-  "m/44'/145'/0'/0/0",
-  "m/44'/145'/0'/0/1",
+  "m/44'/0'/0'/1/0"
 ]
 
 function listScanPaths() {
@@ -119,6 +107,7 @@ function derive(mnemonic, passphrase, network, mode, path) {
 
 /**
  * Auto-Scan: getBalanceFn(address, network) => { confirmed, unconfirmed }
+ * Failed lookups set error and leave totals null — they are not treated as empty wallets.
  */
 async function autoScan(mnemonic, passphrase, network, getBalanceFn) {
   const phrase = String(mnemonic).trim()
@@ -127,33 +116,56 @@ async function autoScan(mnemonic, passphrase, network, getBalanceFn) {
   }
   const out = []
   const seen = new Set()
-  for (const path of SCAN_PATHS) {
+  for (const path of listScanPaths()) {
+    let d
     try {
-      const d = path === 'kallubi'
+      d = path === 'kallubi'
         ? deriveKallubi(phrase, passphrase, network)
         : deriveBip32(phrase, passphrase, path, network)
-      if (seen.has(d.address)) continue
-      seen.add(d.address)
-      let confirmed = 0
-      let unconfirmed = 0
-      if (typeof getBalanceFn === 'function') {
-        try {
-          const b = await getBalanceFn(d.address, network)
-          confirmed = Number(b.confirmed || 0)
-          unconfirmed = Number(b.unconfirmed || 0)
-        } catch (e) {}
-      }
+    } catch (e) {
       out.push({
-        path: d.path,
-        mode: d.mode,
-        address: d.address,
-        confirmed,
-        unconfirmed,
-        total: confirmed + unconfirmed
+        path: path,
+        mode: path === 'kallubi' ? 'kallubi' : 'bip44',
+        address: '',
+        confirmed: null,
+        unconfirmed: null,
+        total: null,
+        error: (e && e.message) ? e.message : 'derive failed'
       })
-    } catch (e) {}
+      continue
+    }
+    if (seen.has(d.address)) continue
+    seen.add(d.address)
+    let confirmed = 0
+    let unconfirmed = 0
+    let error = ''
+    if (typeof getBalanceFn === 'function') {
+      try {
+        const b = await getBalanceFn(d.address, network)
+        confirmed = Number(b.confirmed || 0)
+        unconfirmed = Number(b.unconfirmed || 0)
+      } catch (e) {
+        confirmed = null
+        unconfirmed = null
+        error = (e && e.message) ? e.message : 'balance lookup failed'
+      }
+    }
+    out.push({
+      path: d.path,
+      mode: d.mode,
+      address: d.address,
+      confirmed: confirmed,
+      unconfirmed: unconfirmed,
+      total: error ? null : (Number(confirmed) + Number(unconfirmed)),
+      error: error
+    })
   }
-  out.sort((a, b) => b.total - a.total)
+  out.sort(function (a, b) {
+    const ae = a.error ? 1 : 0
+    const be = b.error ? 1 : 0
+    if (ae !== be) return ae - be
+    return (Number(b.total) || 0) - (Number(a.total) || 0)
+  })
   return out
 }
 

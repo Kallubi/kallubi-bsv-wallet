@@ -1,46 +1,58 @@
-# dependencies & build
-node_modules/
-dist/
-out/
-*.AppImage
-*.exe
-*.blockmap
-*.snap
-*.dmg
-linux-unpacked/
-win-unpacked/
-mac/
-builder-effective-config.yaml
-builder-debug.yml
 
-# local wallet secrets — NEVER commit
+*.AppImage
+apply-sweep-102.js
+*.bak
+*.bak*
+*.bak-*
+*.blockmap
+builder-debug.yml
+builder-effective-config.yaml
+cd
+copy
+# dependencies & build
+dir
+dist/
+*.dmg
+.DS_Store
+# editor / OS
 *.enc.json
-wallet.enc.json
-wallets-index.json
-wallets-index-main.json
-wallets/
-testnet-wallet.json
-timelocks.json
-*.wif
-*.mnemonic
+*.enc.json*
 .env
 .env.*
-
-# user data copies
-.kallubi-bsv-wallet/
-k3s-dashboard-token.txt
-
-# editor / OS
-.DS_Store
-Thumbs.db
-*.swp
-*.bak
-*.bak-*
-.vscode/
+*.exe
+Get-ChildItem
+Get-FileHash
+hd-boot.js
 .idea/
-
+k3s-dashboard-token.txt
+.kallubi-bsv-wallet/
+linux-unpacked/
+# local wallet secrets — NEVER commit
+*.log
 # logs
+mac/
+*.mnemonic
+node_modules/
+npm
 npm-debug.log*
+out/
+robocopy
+*seed*
+*.snap
+step*.mjs
+*.swp
+test-core.mjs
+testnet-wallet.json
+Thumbs.db
+timelocks.json
+# user data copies
+.vscode/
+wallet.enc.json
+wallets/
+wallets-index*.json
+wallets-index.json
+wallets-index-main.json
+*.wif
+win-unpacked/
 yarn-debug.log*
 yarn-error.log*
-*.log

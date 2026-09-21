@@ -68,12 +68,9 @@ function unlockTimelock(opts) {
   return true
 }
 
+/** Kept for old callers. App locks are not chain locks — this does not wipe them. */
 function clearChainLocks() {
-  const list = loadLocks().filter(function (l) {
-    return l.type === 'app'
-  })
-  saveLocks(list)
-  return list.length
+  return 0
 }
 
 module.exports = {

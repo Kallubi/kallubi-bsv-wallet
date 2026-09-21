@@ -3,7 +3,10 @@ const path = require('path')
 const fs = require('fs')
 
 const store = require('./wallet-store.cjs')
+const hd = require('./wallet-hd.cjs')
+const coreHd = require('./wallet-core.cjs')
 const core = require('./wallet-core.cjs')
+const sweep = require('./wallet-sweep.cjs')
 const timelock = require('./wallet-timelock.cjs')
 const nodeMod = require('./wallet-node.cjs')
 const settings = require('./wallet-settings.cjs')
@@ -31,7 +34,8 @@ function publicSession(s) {
     address: s.address,
     network: s.network,
     derivationMode: s.derivationMode || 'kallubi',
-    derivationPath: s.derivationPath || 'kallubi'
+    derivationPath: s.derivationPath || 'kallubi',
+    hasMnemonic: !!(s && s.mnemonic)
   }
 }
 
@@ -84,6 +88,7 @@ function wrap(fn) {
 
 function createWindow() {
   const win = new BrowserWindow({
+    icon: require('path').join(__dirname, 'logo.png'),
     width: 1100,
     height: 760,
     minWidth: 800,
@@ -167,6 +172,21 @@ ipcMain.handle('wallets:unlock', wrap(function (p) {
   checkLockout(key)
   try {
     session = store.unlockWallet(p.id, p.password, p.network)
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const os = require('os')
+      const f = path.join(os.homedir(), '.kallubi-bsv-wallet', 'last-hd-scan.json')
+      if ((!session.hdAddresses || !session.hdAddresses.length) && fs.existsSync(f)) {
+        const last = JSON.parse(fs.readFileSync(f, 'utf8'))
+        const rows = (last && last.rows) || []
+        const hit = rows.some(function (r) { return r && r.address === session.address })
+        if (hit && rows.length) {
+          store.attachRockHd(p.id, p.password, p.network, rows)
+          session = store.unlockWallet(p.id, p.password, p.network)
+        }
+      }
+    } catch (e2) {}
     noteOk(key)
     touchIdle()
     return publicSession(session)
@@ -206,8 +226,14 @@ ipcMain.handle('wallets:session', wrap(function () {
 }))
 
 ipcMain.handle('chain:balance', wrap(async function (p) {
-  const addr = (p && p.address) || (session && session.address)
   const net = (p && p.network) || (session && session.network) || 'main'
+  const hd = session && session.hdAddresses
+  if (hd && hd.length && !(p && p.address && p.address !== session.address)) {
+    var cached = 0
+    hd.forEach(function (h) { cached += Number(h.total || 0) })
+    if (cached > 0) return { confirmed: cached, unconfirmed: 0 }
+  }
+  const addr = (p && p.address) || (session && session.address)
   if (!addr) throw new Error('No address')
   return core.getBalance(addr, net)
 }))
@@ -221,17 +247,42 @@ ipcMain.handle('chain:utxos', wrap(async function (p) {
 
 ipcMain.handle('chain:send', wrap(async function (p) {
   if (!session || !session.priv) throw new Error('Locked')
+  let sources = null
+  const net = (session.network === 'test' || session.network === 'testnet') ? 'test' : 'main'
+  if (session.mnemonic) {
+    sources = await sweep.collectSources(session.mnemonic, session.passphrase || '', net)
+  }
   return core.send({
     priv: session.priv,
     fromAddr: session.address,
-    network: session.network,
+    network: net,
     recipients: p.recipients,
     toAddr: p.toAddr,
     sendSats: p.sendSats,
     feeSats: p.feeSats,
-    preferWoc: p.preferWoc
+    preferWoc: p.preferWoc,
+    sources: sources
   })
 }))
+
+let lastSweepId = ''
+ipcMain.handle('chain:seedPeek', wrap(function () {
+  return sweep.peekSession(session)
+}))
+ipcMain.handle('chain:seedFunds', wrap(async function () {
+  if (!session) return { addresses: 0, sats: 0, hasMnemonic: false, rows: [] }
+  const sources = await sweep.fundsForSession(session)
+  const sum = sweep.sumSources(sources)
+  console.log('SEEDFUNDS', session.address, sum.addresses, sum.sats)
+  return {
+    addresses: sum.addresses,
+    sats: sum.sats,
+    hasMnemonic: !!session.mnemonic,
+    address: session.address,
+    rows: sources.map(function (x) { return { path: x.path, address: x.address, total: x.sats } })
+  }
+}))
+
 
 ipcMain.handle('timelock:list', wrap(function () {
   if (!session) throw new Error('Locked')
@@ -371,3 +422,37 @@ app.on('window-all-closed', function () {
 app.on('activate', function () {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
+
+ipcMain.handle('scanHd', async (_e, p) => {
+  p = p || {}
+  const rows = await hd.scanHd({
+    mnemonic: p.mnemonic,
+    passphrase: p.passphrase || '',
+    network: p.network || 'main',
+    preset: p.preset || 'rock',
+    gap: p.gap || 130,
+    getBalance: coreHd.getBalance
+  })
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const os = require('os')
+    const f = path.join(os.homedir(), '.kallubi-bsv-wallet', 'last-hd-scan.json')
+    fs.writeFileSync(f, JSON.stringify({ at: Date.now(), rows: rows }))
+  } catch (e) {}
+  return rows
+})
+ipcMain.handle('scanRockWallet', async (_e, p) => {
+  p = p || {}
+  return hd.scanHd({
+    mnemonic: p.mnemonic,
+    passphrase: p.passphrase || '',
+    network: p.network || 'main',
+    preset: 'rock',
+    gap: p.gap || 130,
+    getBalance: coreHd.getBalance
+  })
+})
+ipcMain.handle('attachRockHd', (_e, p) => store.attachRockHd(p.id, p.password, p.network, p.rows))
+ipcMain.handle('loadRockHd', (_e, p) => store.loadRockHd(p.id, p.password, p.network))
+

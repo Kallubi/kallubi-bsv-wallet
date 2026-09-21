@@ -65,7 +65,9 @@ function deriveKey(mnemonic, passphrase, network, mode, derivPath) {
     priv: d.priv,
     address: d.address,
     derivationMode: d.mode,
-    derivationPath: d.path
+    derivationPath: d.path,
+    mnemonic: mnemonic || '',
+    passphrase: passphrase || ''
   }
 }
 
@@ -180,8 +182,10 @@ function unlockWallet(id, password, network) {
   } catch (e) {
     throw new Error('Wrong password')
   }
-  const priv = PrivateKey.fromWif(inner.wif)
-  const address = addressFromPriv(priv, network)
+  const hd = inner.hd && Array.isArray(inner.hd.addresses) ? inner.hd : null
+  const funded = hd ? hd.addresses.filter(function (r) { return (Number(r.total) || 0) > 0 && r.wif }) : []
+  const priv = PrivateKey.fromWif((funded[0] && funded[0].wif) || inner.wif)
+  const address = (funded[0] && funded[0].address) || addressFromPriv(priv, network)
   const meta = readIndex(network).find(function (w) { return w.id === id })
   return {
     id: id,
@@ -190,8 +194,12 @@ function unlockWallet(id, password, network) {
     address: address,
     priv: priv,
     network: netKey(network),
+    mnemonic: inner.mnemonic || '',
+    passphrase: inner.passphrase || '',
     derivationMode: inner.derivationMode || (meta && meta.derivationMode) || 'kallubi',
-    derivationPath: inner.derivationPath || (meta && meta.derivationPath) || 'kallubi'
+    derivationPath: inner.derivationPath || (meta && meta.derivationPath) || 'kallubi',
+    hd: hd,
+    hdAddresses: funded
   }
 }
 
@@ -296,6 +304,36 @@ function importFromWif(name, password, rawKey, network) {
   return { id: id, name: String(name).trim(), address: address, network: netKey(network) }
 }
 
+
+function attachRockHd(id, password, network, hdRows) {
+  const f = walletFile(network, id)
+  if (!fs.existsSync(f)) throw new Error('Wallet not found')
+  const payload = JSON.parse(fs.readFileSync(f, 'utf8'))
+  let inner
+  try { inner = decryptJson(payload, password) } catch (e) { throw new Error('Wrong password') }
+  const rows = Array.isArray(hdRows) ? hdRows : []
+  inner.hd = { scheme: 'hd-account', addresses: rows }
+  const funded = rows.filter(function (r) { return (r.total || 0) > 0 })
+  if (funded.length) inner.address = funded[0].address
+  fs.writeFileSync(f, JSON.stringify(encryptJson(inner, password), null, 2))
+  const list = readIndex(network)
+  const i = list.findIndex(function (w) { return w.id === id })
+  if (i >= 0) {
+    list[i].address = inner.address
+    list[i].hdScheme = 'hd-account'
+    writeIndex(network, list)
+  }
+  return inner.hd
+}
+function loadRockHd(id, password, network) {
+  const f = walletFile(network, id)
+  if (!fs.existsSync(f)) throw new Error('Wallet not found')
+  const payload = JSON.parse(fs.readFileSync(f, 'utf8'))
+  let inner
+  try { inner = decryptJson(payload, password) } catch (e) { throw new Error('Wrong password') }
+  return inner.hd || { scheme: '', addresses: [] }
+}
+
 module.exports = {
   importFromWif,
   listWallets,
@@ -307,6 +345,8 @@ module.exports = {
   revealMnemonic,
   updateWalletMeta,
   deleteWallet,
+  attachRockHd,
+  loadRockHd,
   DATA_ROOT,
   WALLETS_ROOT
 }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://api.whatsonchain.com https://status.kallubi-bsv-explorer.de https://api.coingecko.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://api.whatsonchain.com https://status.kallubi-bsv-explorer.de https://node.kallubi-bsv-explorer.de https://api.coingecko.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Kallubi Wallet</title>
 <style>
@@ -117,7 +117,15 @@
 .seed-confirm input[type=checkbox]{width:22px;height:22px;min-width:22px;accent-color:var(--gold);cursor:pointer}
 .seed-confirm span{font-size:14px;font-weight:600}
 
-  </style>
+  #rockScanOut{display:block;width:100%;margin-top:8px;clear:both}
+
+#walletList {
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -195,17 +203,21 @@
         <label id="tNewDeriv">Derivation</label>
         <select id="newMode">
           <option value="kallubi">Kallubi (original)</option>
-          <option value="bip44">BIP44 / path</option>
+          <option value="bip44">HD path</option>
         </select>
-        <label id="tNewPath">Path (BIP44)</label>
+        <label id="tNewPath">Path</label>
         <select id="newPathPreset" disabled>
-          <option value="m/44'/0'/0'/0/0">Centi (BSV) · m/44'/0'/0'/0/0</option>
-          <option value="m/0'/0/0">RockWallet · m/0'/0/0</option>
-          <option value="m/44'/236'/0'/0/0">Ellipal · m/44'/236'/0'/0/0</option>
-          <option value="m/44'/0'/0'/0/0">ElectrumSV · m/44'/0'/0'/0/0</option>
-          <option value="m/0'">HandCash 1.x · m/0' (not HandCash 2.0)</option>
-          <option value="m/44'/145'/0'/0/0">simply.cash · m/44'/145'/0'/0/0</option>
-          <option value="m/44'/236'/0'/0/0">RelayX · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">Centi (BSV) · m/44'/0'/0'/0/0</option>
+          <option value="m/0'/0/0" data-preset="rock">RockWallet · m/0'/0/0</option>
+            <option value="m/44'/0/0/0" data-preset="centbee">Centbee · m/44'/0/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="ellipal">Ellipal · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">ElectrumSV · m/44'/0'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="electrum236">ElectrumSV coin 236 · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">MoneyButton · m/44'/0'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="exodus">Exodus · m/44'/236'/0'/0/0</option>
+          <option value="m/0'" data-preset="handcash">HandCash 1.x · m/0' (not HandCash 2.0)</option>
+          <option value="m/44'/145'/0'/0/0" data-preset="simply">simply.cash · m/44'/145'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="relayx">RelayX · m/44'/236'/0'/0/0</option>
           <option value="custom">Custom…</option>
         </select>
         <input id="newPathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
@@ -231,17 +243,22 @@
         <label id="tDeriv">Derivation</label>
         <select id="restoreMode">
           <option value="kallubi">Kallubi (original)</option>
-          <option value="bip44">BIP44 / path</option>
+          <option value="bip44">HD path</option>
         </select>
-        <label id="tPath">Path (BIP44)</label>
-        <select id="restorePathPreset">
-          <option value="m/44'/0'/0'/0/0">Centi (BSV) · m/44'/0'/0'/0/0</option>
-          <option value="m/0'/0/0">RockWallet · m/0'/0/0</option>
-          <option value="m/44'/236'/0'/0/0">Ellipal · m/44'/236'/0'/0/0</option>
-          <option value="m/44'/0'/0'/0/0">ElectrumSV · m/44'/0'/0'/0/0</option>
-          <option value="m/0'">HandCash 1.x · m/0' (not HandCash 2.0)</option>
-          <option value="m/44'/145'/0'/0/0">simply.cash · m/44'/145'/0'/0/0</option>
-          <option value="m/44'/236'/0'/0/0">RelayX · m/44'/236'/0'/0/0</option>
+        <label id="tPath">Path</label>
+                <select id="restorePathPreset">
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">Centi (BSV) · m/44'/0'/0'/0/0</option>
+          <option value="m/0'/0/0" data-preset="rock">RockWallet · m/0'/0/0</option>
+          <option value="m/44'/0/0/0" data-preset="centbee">Centbee · m/44'/0/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="ellipal">Ellipal · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">ElectrumSV · m/44'/0'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="electrum236">ElectrumSV coin 236 · m/44'/236'/0'/0/0</option>
+          <option value="m/44'/0'/0'/0/0" data-preset="centi">MoneyButton · m/44'/0'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="exodus">Exodus · m/44'/236'/0'/0/0</option>
+          <option value="m/0'" data-preset="handcash">HandCash 1.x · m/0' (not HandCash 2.0)</option>
+          <option value="m/44'/145'/0'/0/0" data-preset="simply">simply.cash · m/44'/145'/0'/0/0</option>
+          <option value="m/44'/236'/0'/0/0" data-preset="relayx">RelayX · m/44'/236'/0'/0/0</option>
+
           <option value="custom">Custom…</option>
         </select>
         <input id="restorePathCustom" class="hidden" placeholder="m/44'/0'/0'/0/0" />
@@ -251,6 +268,7 @@
         <div class="pw-wrap"><input type="password" id="restorePw2" /><button type="button" class="btn pw-toggle" data-target="restorePw2">Show</button></div>
         <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
           <button type="button" class="btn" id="btnScanSeed">Auto-Scan paths</button>
+          <button type="button" class="btn" id="btnScanRock">Scan HD</button>
           <button type="button" class="btn primary" id="btnRestore">Restore</button>
         </div>
         <div id="scanResults" class="muted" style="margin-top:10px;max-height:220px;overflow:auto;font-size:12px"></div>
@@ -469,6 +487,17 @@
 </div>
 
 <script>
+
+window.refreshHdAfterSend = async function () {
+  try {
+    if (typeof refreshBalance === 'function') await refreshBalance()
+  } catch (e) {}
+  try {
+    var btn = document.getElementById('btnHdScan') || document.getElementById('btnScanHd')
+    if (btn) btn.click()
+  } catch (e) {}
+}
+
 const api = window.kallubi
 if (!api) {
   document.body.innerHTML = '<p style="padding:24px;color:#fff">Wallet bridge missing. Update main.js + preload.js.</p>'
@@ -490,7 +519,7 @@ let hideBalance = false
 let priceUsd = null
 let autoTimer = null
 let pendingSend = null
-api.onLocked(function(){ session = null; document.getElementById('viewApp').classList.add('hidden'); document.getElementById('navApp').classList.add('hidden'); document.getElementById('viewLock').classList.remove('hidden'); renderWalletList() })
+api.onLocked(function(){ window.__hdSpendable=0; window.__hdAddr=''; var hb=document.getElementById('hdListBox'); if(hb) hb.textContent=''; session = null; document.getElementById('viewApp').classList.add('hidden'); document.getElementById('navApp').classList.add('hidden'); document.getElementById('viewLock').classList.remove('hidden'); renderWalletList() })
 
 const RECENT_KEY = 'kallubi_recent_addrs'
 const DISC_KEY = 'kallubi_disclaimer_ok_v1'
@@ -526,9 +555,9 @@ const I18N = {
     discTitle:'Haftungsausschluss', discAccept:'Ich verstehe und akzeptiere',
     discText:'Kallubi Wallet ist eine unabhängige Desktop-Wallet.\n\n• Keine Garantie, Nutzung auf eigene Gefahr\n• Nicht von der BSV Association oder WhatsOnChain\n• Bewahre Seed & 13. Wort offline – Verlust = Verlust der Coins\n• Prüfe Adressen und Beträge vor dem Senden',
     emptyWallets:'Noch keine Wallet.\n„Neue Wallet“ oder „Aus Seed“.',
-    deriv:'Ableitung', path:'Pfad (BIP44)', scanBtn:'Paths scannen', scanRun:'Scan läuft…',
+    deriv:'Ableitung', path:'Pfad', scanBtn:'Paths scannen', scanRun:'Scan läuft…',
     scanPick:'Gewählt: ', enterSeed:'Seed eingeben', pathReq:'Pfad nötig',
-    modeKallubi:'Kallubi (original)', modeBip:'BIP44 / Pfad', pathCustom:'Eigene…',
+    modeKallubi:'Kallubi (original)', modeBip:'HD-Pfad', pathCustom:'Eigene…',
     scanHint:'★ = Guthaben · Zeile tippen = Path wählen',
     overviewSub:'Saldo · Adresse · Notiz', autoHint:'Minuten · 0 = aus',
     backupSub:'Zuerst Seed · dann Datei', seedSection:'1 · SEED',
@@ -564,9 +593,9 @@ const I18N = {
     discTitle:'Disclaimer', discAccept:'I understand and accept',
     discText:'Kallubi Wallet is an independent desktop wallet.\n\n• No warranty – use at your own risk\n• Not affiliated with BSV Association or WhatsOnChain\n• Keep seed & 13th word offline – loss means loss of funds\n• Double-check addresses and amounts before sending',
     emptyWallets:'No wallets yet.\nUse “New wallet” or “From seed”.',
-    deriv:'Derivation', path:'Path (BIP44)', scanBtn:'Auto-Scan paths', scanRun:'Scanning…',
+    deriv:'Derivation', path:'Path', scanBtn:'Auto-Scan paths', scanRun:'Scanning…',
     scanPick:'Selected: ', enterSeed:'Enter seed', pathReq:'Path required',
-    modeKallubi:'Kallubi (original)', modeBip:'BIP44 / path', pathCustom:'Custom…',
+    modeKallubi:'Kallubi (original)', modeBip:'HD path', pathCustom:'Custom…',
     scanHint:'★ = funds · tap row = select path',
     overviewSub:'Balance · address · note', autoHint:'minutes · 0 = off',
     backupSub:'Seed first · then encrypted file', seedSection:'1 · SEED',
@@ -820,9 +849,49 @@ async function refreshBalance(){
   if (!session) return
   let locked = 0
   try { locked = Number(await api.lockedSats()) || 0 } catch (e) { locked = 0 }
+  try {
+    var k = (typeof kallubi !== 'undefined' && kallubi) ? kallubi : (window.kallubi || api)
+    if (k && typeof k.seedFunds === 'function') {
+      var isKallubiOnly = !!(session && (session.derivationMode === 'kallubi' || session.derivationPath === 'kallubi') && !(session.hdAddresses && session.hdAddresses.length))
+      if (isKallubiOnly) {
+        window.__hdSpendable = 0
+        var boxSkip = document.getElementById('hdListBox')
+        if (boxSkip) boxSkip.textContent = ''
+      } else
+      if (false) {}
+      else {
+      var hd = await k.seedFunds()
+      if (hd && Number(hd.sats) > 0) {
+        window.__hdSpendable = Number(hd.sats)
+        setBalanceUi(Math.max(0, Number(hd.sats) - locked))
+        var box = document.getElementById('hdListBox')
+        if (box) box.textContent = 'HD: ' + hd.addresses + ' addr · ' + hd.sats + ' sats'
+        document.getElementById('addrBox').textContent = session.address
+        document.getElementById('recvAddr').textContent = session.address
+        document.getElementById('walletNote').value = session.note || ''
+        try {
+          const url = await QRCode.toDataURL(session.address, { width: 180, margin: 2 })
+          document.getElementById('qr').innerHTML = ''
+          const img = document.createElement('img'); img.src = url
+          document.getElementById('qr').appendChild(img)
+        } catch (qe) {}
+        return
+      }
+      }
+    }
+  } catch (e) {}
   let bal
   try {
-    bal = await api.getBalance({ address: session.address, network: network })
+    bal = await (async function(){
+      var addrs = [session.address]
+      ;(session.hdAddresses || []).forEach(function(h){ if (h && h.address && addrs.indexOf(h.address) < 0) addrs.push(h.address) })
+      var c = 0, u = 0
+      for (var i = 0; i < addrs.length; i++) {
+        var b = await api.getBalance({ address: addrs[i], network: network })
+        c += Number(b.confirmed || 0); u += Number(b.unconfirmed || 0)
+      }
+      return { confirmed: c, unconfirmed: u }
+    })()
   } catch (e) {
     var msg = String((e && e.message) || e)
     document.getElementById('balFiat').textContent = /429/.test(msg)
@@ -831,7 +900,14 @@ async function refreshBalance(){
     return
   }
   const total = (Number(bal.confirmed)||0) + (Number(bal.unconfirmed)||0)
-  setBalanceUi(Math.max(0, total - locked))
+  var hdFromDom = 0
+  try {
+    var box = document.getElementById('hdListBox')
+    var mm = box && String(box.innerText || '').match(/Sum:\s*([0-9]+)/)
+    if (mm) hdFromDom = Number(mm[1]) || 0
+    if (hdFromDom) window.__hdSpendable = hdFromDom
+  } catch (e) {}
+  setBalanceUi(Math.max(0, Math.max(total, hdFromDom, Number(window.__hdSpendable) || 0) - locked))
   document.getElementById('addrBox').textContent = session.address
   document.getElementById('recvAddr').textContent = session.address
   document.getElementById('walletNote').value = session.note || ''
@@ -1317,6 +1393,22 @@ document.getElementById('btnRefresh').onclick = async function(){
   let apiOk = false, priceOk = false
   try { await loadPrice(); priceOk = true; apiOk = true } catch(e){}
   try { await refreshBalance(); apiOk = true } catch(e){ document.getElementById('balFiat').textContent = e.message||'—' }
+  try {
+    var k = (typeof kallubi !== 'undefined' && kallubi) ? kallubi : (window.kallubi || api)
+    if (k && typeof k.seedFunds === 'function') {
+      var hd = await k.seedFunds()
+      if (hd && typeof hd.sats === 'number') {
+        window.__hdSpendable = hd.sats
+        try { setBalanceUi(hd.sats) } catch (e) {}
+        var el = document.getElementById('balBsv') || document.getElementById('spendableBsv') || document.querySelector('.bal-bsv')
+        if (el) el.textContent = (hd.sats/1e8).toFixed(8) + ' BSV'
+        var el2 = document.getElementById('balSats')
+        if (el2) el2.textContent = String(hd.sats) + ' sats · HD live'
+        var box = document.getElementById('hdListBox')
+        if (box) box.textContent = 'HD unspent: ' + hd.addresses + ' addr · ' + hd.sats + ' sats'
+      }
+    }
+  } catch (e) {}
   setStatus(apiOk, priceOk)
   resetAutoLock()
 }
@@ -1347,11 +1439,36 @@ document.getElementById('btnSend').onclick = async function(){
     const recipients = collectRecipients()
     const fee = Number(document.getElementById('sendFee').value)||500
     const locked = Number(await api.lockedSats()) || 0
-    const bal = await api.getBalance({ address: session.address, network: network })
+    const bal = await (async function(){
+      var addrs = [session.address]
+      ;(session.hdAddresses || []).forEach(function(h){ if (h && h.address && addrs.indexOf(h.address) < 0) addrs.push(h.address) })
+      var c = 0, u = 0
+      for (var i = 0; i < addrs.length; i++) {
+        var b = await api.getBalance({ address: addrs[i], network: network })
+        c += Number(b.confirmed || 0); u += Number(b.unconfirmed || 0)
+      }
+      return { confirmed: c, unconfirmed: u }
+    })()
     const total = (bal.confirmed||0)+(bal.unconfirmed||0)
     const sum = recipients.reduce(function(s,r){ return s+r.satoshis },0)
     const need = sum + fee
-    if (need > total - locked) throw new Error(lang==='de'?'Zu wenig verfügbar':'Insufficient spendable')
+    let spendable = total - locked
+    if (Number(window.__hdSpendable) > spendable) spendable = Number(window.__hdSpendable) - locked
+    if (session && session.hdAddresses && session.hdAddresses.length) {
+      var hdSum = 0
+      session.hdAddresses.forEach(function(h){ hdSum += Number(h.total || 0) })
+      if (hdSum - locked > spendable) spendable = hdSum - locked
+    }
+    
+    var hdMax = Number(window.__hdSpendable) || 0
+    try {
+      var hb = document.getElementById('hdListBox')
+      var hm = hb && String(hb.innerText||'').match(/Sum:\s*([0-9]+)/)
+      if (hm) hdMax = Math.max(hdMax, Number(hm[1])||0)
+    } catch (e) {}
+    var have = Math.max((total - locked), (hdMax - locked))
+    if (need > have) throw new Error(lang==='de'?'Zu wenig verfügbar':'Insufficient spendable')
+
     const change = (total - locked) - need
     pendingSend = { recipients: recipients, fee: fee }
     const body = document.getElementById('sendModalBody'); body.innerHTML = ''
@@ -1449,6 +1566,329 @@ renderWalletList()
 updateUnlockBtn()
 setStatus(false, false)
 if (!localStorage.getItem(DISC_KEY)) document.getElementById('discModal').classList.remove('hidden')
+</script>
+<script>
+(function () {
+  var hdMod = null
+  try {
+    var path = require('path')
+    var req = (typeof window !== 'undefined' && window.require) ? window.require : require
+    var tries = ['./wallet-hd.cjs', path.join(process.cwd(), 'wallet-hd.cjs'), path.join(__dirname || process.cwd(), 'wallet-hd.cjs')]
+    for (var i = 0; i < tries.length; i++) {
+      try { hdMod = req(tries[i]); break } catch (e) {}
+    }
+  } catch (e) { hdMod = null }
+
+  function $(id) { return document.getElementById(id) }
+
+  function isRockSelected() {
+    return true
+  }
+  function syncRockBtn() {
+    var b = $('btnScanRock')
+    var out = $('rockScanOut')
+    var show = isRockSelected()
+    if (b) b.style.display = show ? '' : 'none'
+    if (out) out.style.display = show ? '' : 'none'
+  }
+
+  function ensureUi() {
+    var scan = $('btnScanSeed')
+    if (scan && !$('btnScanRock')) {
+      var b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'btn'
+      b.id = 'btnScanRock'
+      b.textContent = 'Scan RockWallet'
+      scan.parentNode.insertBefore(b, scan.nextSibling)
+    }
+    if (!$('rockScanOut')) {
+      var out = document.createElement('div')
+      out.id = 'rockScanOut'
+      out.className = 'muted'
+      out.style.cssText = 'display:block;width:100%;margin-top:8px;font-size:12px;max-height:180px;overflow:auto'
+      var host = $('btnScanRock') || scan
+      if (host && host.parentNode) { var row = host.parentNode; out.style.display='block'; out.style.width='100%'; if (row.parentNode) row.parentNode.insertBefore(out, row.nextSibling); else row.appendChild(out) }
+    }
+    if (!$('hdListBox')) {
+      var box = document.createElement('div')
+      box.id = 'hdListBox'
+      box.className = 'muted'
+      box.style.cssText = 'margin-top:10px;font-size:12px'
+      var ap = $('addrPath') || $('viewApp')
+      if (ap && ap.parentNode) ap.parentNode.appendChild(box)
+    }
+    document.querySelectorAll('select').forEach(function (sel) {
+      if (sel._hdRock) return
+      sel._hdRock = true
+      sel.addEventListener('change', syncRockBtn)
+    })
+    syncRockBtn()
+  }
+
+  function renderHdList(rows) {
+    var box = $('hdListBox')
+    if (!box) return
+    if (!rows || !rows.length) { box.innerHTML = ''; return }
+    var funded = rows.filter(function (r) { return (r.total || 0) > 0 })
+    var sum = 0
+    for (var i = 0; i < rows.length; i++) sum += (rows[i].total || 0)
+    var html = '<div class="label">ROCKWALLET</div>'
+    html += '<div>Funded: ' + funded.length + ' / ' + rows.length + '</div>'
+    html += '<div>Sum: ' + sum + ' sats</div>'
+    var show = funded.length ? funded : rows.slice(0, 6)
+    for (var j = 0; j < show.length; j++) {
+      var r = show[j]
+      html += '<div class="selectable">' + r.path + ' · ' + r.address + ' · ' + (r.total || 0) + '</div>'
+    }
+    box.innerHTML = html
+    try {
+      window.__hdSpendable = sum
+      if (typeof session !== 'undefined' && session) {
+        session.hdAddresses = funded.map(function (r) {
+          return { address: r.address, path: r.path, total: r.total }
+        })
+      }
+      if (typeof setBalanceUi === 'function') setBalanceUi(Math.max(0, sum))
+    } catch (e) {}
+    /* AUTO_FUND_PATH */
+    try {
+      var funded = rows.filter(function(r){ return Number(r.total||0) > 0 })
+      if (funded.length) {
+        funded.sort(function(a,b){ return Number(b.total||0) - Number(a.total||0) })
+        var best = funded[0]
+        var rm = document.getElementById('restoreMode')
+        var rp = document.getElementById('restorePath')
+        var pre = document.getElementById('restorePathPreset')
+        if (rm) rm.value = 'bip44'
+        if (rp) { rp.value = best.path; rp.classList.remove('hidden') }
+        if (pre) {
+          var exists = false
+          for (var i=0;i<pre.options.length;i++) if (pre.options[i].value===best.path) exists=true
+          if (!exists) {
+            var opt = document.createElement('option')
+            opt.value = best.path
+            opt.textContent = 'Found · ' + best.path + ' · ' + best.total + ' sats'
+            pre.appendChild(opt)
+          }
+          pre.value = best.path
+        }
+        html = '<div class="ok" style="margin-bottom:8px">Selected ' + best.path + ' · ' + best.total + ' sats — click Restore</div>' + html
+        box.innerHTML = html
+      }
+    } catch (eAuto) {}
+
+  }
+
+  async function runRockScan(mnemonic, bip) {
+    var api = (typeof kallubi !== 'undefined') ? kallubi : (window && window.kallubi)
+
+    var preset = 'rock'
+    document.querySelectorAll('select').forEach(function (sel) {
+      var v = String(sel.value || '')
+      var t = ''
+      try { t = sel.options[sel.selectedIndex].text || '' } catch (e) {}
+      if (v.indexOf("m/44'/0/0") === 0 && v.indexOf("m/44'/0'/") !== 0) preset = 'centbee'
+      else if (/centbee/i.test(t)) preset = 'centbee'
+      else if (v.indexOf("m/44'/0'/0'/0") === 0 || /centi|moneybutton/i.test(t)) preset = 'centi'
+      else if (v.indexOf("m/44'/236'") === 0 || /ellipal|relayx|exodus|coin 236/i.test(t)) preset = 'electrum'
+      else if (/electrum/i.test(t)) preset = 'centi'
+      else if (v.indexOf("m/44'/145'") === 0 || /simply/i.test(t)) preset = 'simply'
+      else if (v.indexOf("m/0'/0") === 0 || /rockwallet/i.test(t)) preset = 'rock'
+    })
+
+    if (!api || (typeof api.scanHd !== 'function' && typeof api.scanRockWallet !== 'function')) throw new Error('HD scan API missing')
+    var out = $('rockScanOut')
+    if (out) out.textContent = 'Scanning ' + (preset === 'centi' ? 'ElectrumSV' : preset) + '…'
+    var rows = await (api.scanHd || api.scanRockWallet)({
+      mnemonic: mnemonic,
+      passphrase: bip || '',
+      network: (typeof network !== 'undefined' ? network : 'main'),
+      preset: preset,
+      gap: 130
+    })
+    if (out) {
+      var funded = rows.filter(function (r) { return (r.total || 0) > 0 })
+      out.textContent = funded.length
+        ? funded.map(function (r) { return r.path + ' · ' + r.address + ' · ' + r.total }).join('\n')
+        : 'No funds on m/0\'/0/* and m/0\'/1/* (gap 130)'
+    }
+    renderHdList(rows)
+    return rows
+  }
+
+  function hook() {
+    return; // HD UI + Scan nur noch in hd-boot.js
+    ensureUi()
+    var btnRock = $('btnScanRock')
+    if (btnRock && !btnRock._hdHook) {
+      btnRock._hdHook = true
+      btnRock.onclick = async function () {
+        try {
+          if ($('seedErr')) $('seedErr').textContent = ''
+          var mn = ($('restoreMnemonic') && $('restoreMnemonic').value || '').trim()
+          var bip = ($('restoreBip') && $('restoreBip').value) || ''
+          if (!mn) throw new Error('Enter seed')
+          await runRockScan(mn, bip)
+        } catch (e) {
+          if ($('seedErr')) $('seedErr').textContent = e.message
+        }
+      }
+    }
+    var btnRestore = $('btnRestore')
+    if (btnRestore && !btnRestore._hdHook) {
+      btnRestore._hdHook = true
+      var oldRestore = btnRestore.onclick
+      btnRestore.onclick = async function () {
+        if ($('seedErr')) $('seedErr').textContent = ''
+        try {
+          if (typeof oldRestore === 'function') {
+            var ret = oldRestore.call(btnRestore)
+            if (ret && typeof ret.then === 'function') await ret
+          }
+          if (!isRockSelected()) return
+          var mn = ($('restoreMnemonic') && $('restoreMnemonic').value || '').trim()
+          var bip = ($('restoreBip') && $('restoreBip').value) || ''
+          var p1 = ($('restorePw') && $('restorePw').value) || ''
+          var api = (typeof kallubi !== 'undefined') ? kallubi : (window && window.kallubi)
+          if (mn && p1 && api && typeof api.attachRockHd === 'function') {
+            var rows = await runRockScan(mn, bip)
+            var net = (typeof network !== 'undefined' ? network : 'main')
+            var list = await api.listWallets({ network: net })
+            var w = list && list.length ? list[list.length - 1] : null
+            if (w) await api.attachRockHd({ id: w.id, password: p1, network: net, rows: rows })
+          }
+        } catch (e) {
+          if ($('seedErr')) $('seedErr').textContent = e.message
+        }
+      }
+    }
+    var btnUnlock = $('btnUnlock')
+    if (btnUnlock && !btnUnlock._hdHook) {
+      btnUnlock._hdHook = true
+      var oldUnlock = btnUnlock.onclick
+      btnUnlock.onclick = async function () {
+        if (typeof oldUnlock === 'function') {
+          var ret = oldUnlock.call(btnUnlock)
+          if (ret && typeof ret.then === 'function') await ret
+        }
+        try {
+          var api = (typeof kallubi !== 'undefined') ? kallubi : (window && window.kallubi)
+          if (!api || !selectedId) return
+          var pw = ($('pwUnlock') && $('pwUnlock').value) || ''
+          if (!pw) return
+          var hd = await api.loadRockHd({ id: selectedId, password: pw, network: (typeof network !== 'undefined' ? network : 'main') })
+          renderHdList(hd && hd.addresses ? hd.addresses : [])
+        } catch (e) {}
+      }
+    }
+  }
+
+  function start() {
+    hook()
+    setTimeout(hook, 400)
+    setTimeout(hook, 1200)
+    setInterval(hook, 800)
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start)
+  else start()
+})()
+
+</script>
+<script src="hd-boot.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script id="hd-live-balance">
+(function () {
+  var busy = false
+  window.kallubiApplyHero = function () {}
+  function pageAddr() {
+    var t = document.body.innerText || ''
+    var m = t.match(/1[a-km-zA-HJ-NP-Z1-9]{24,34}/)
+    return m ? m[0] : ''
+  }
+  function write(sats) {
+    sats = Number(sats) || 0
+    var bsv = (sats / 1e8).toFixed(8) + ' BSV'
+    var sub = sats ? (sats.toLocaleString('de-DE') + ' sats · HD live') : '0 sats'
+    document.querySelectorAll('div').forEach(function (n) {
+      if ((n.textContent || '').trim() !== 'SPENDABLE') return
+      var nodes = n.parentElement.querySelectorAll('div, span')
+      var big = null, small = null
+      nodes.forEach(function (x) {
+        if (x.children.length) return
+        var fs = parseFloat(window.getComputedStyle(x).fontSize) || 0
+        if (fs >= 26) big = x
+        else if (fs >= 12 && fs < 26 && x !== big) small = small || x
+      })
+      if (big) big.textContent = bsv
+      if (small) small.textContent = sub
+    })
+  }
+  async function pull() {
+    if (busy) return
+    var k = window.kallubi || (typeof kallubi !== 'undefined' ? kallubi : null)
+    if (!k || !k.seedFunds) return
+    var nowAddr = pageAddr()
+    if (nowAddr && window.__hdAddr === nowAddr && window.__hdFundsDone) return
+    busy = true
+    try {
+      if (k.seedPeek) {
+        var peek = await k.seedPeek()
+        if (peek && peek.sats) write(peek.sats)
+      }
+      var hd = await k.seedFunds()
+      window.__hdAddr = hd && hd.address || pageAddr()
+      window.__hdSpendable = hd && hd.sats || 0
+      window.__hdFundsDone = true
+      write(window.__hdSpendable)
+    } finally { busy = false }
+  }
+  setInterval(async function () {
+    var k = window.kallubi || (typeof kallubi !== 'undefined' ? kallubi : null)
+    if (k && k.seedPeek && !window.__hdSpendable) {
+      try {
+        var peek = await k.seedPeek()
+        if (peek && peek.sats) { window.__hdSpendable = peek.sats; window.__hdAddr = peek.address; write(peek.sats); return }
+      } catch (e) {}
+    }
+    var now = pageAddr()
+    if (window.__hdAddr && now && now !== window.__hdAddr) {
+      window.__hdSpendable = 0
+      window.__hdFundsDone = false
+      window.__hdAddr = now
+      pull()
+      return
+    }
+    if (window.__hdSpendable) write(window.__hdSpendable)
+  }, 500)
+  document.addEventListener('click', function (ev) {
+    var id = ev.target && ev.target.id
+    if (id === 'btnUnlock' || id === 'btnRefresh' || (id && /logout/i.test(id))) {
+      window.__hdSpendable = 0
+      window.__hdAddr = ''
+      write(0)
+    }
+    if (id === 'btnUnlock' || id === 'btnRefresh') setTimeout(pull, 0)
+  }, true)
+})();
 </script>
 </body>
 </html>

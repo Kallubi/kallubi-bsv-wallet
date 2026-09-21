@@ -1,6 +1,6 @@
 {
   "name": "kallubi-bsv-wallet",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Kallubi BSV Wallet",
   "main": "main.js",
   "author": "Kallubi",
@@ -33,7 +33,12 @@
       "!dist/**",
       "!**/*.md",
       "!**/testnet-wallet.json",
-      "!**/wallets/**"
+      "!**/wallet.enc.json",
+      "!**/wallets-index*.json",
+      "!**/timelocks.json",
+      "!**/wallets/**",
+      "!**/*.bak*",
+      "!**/*.enc.json"
     ],
     "linux": {
       "target": [
