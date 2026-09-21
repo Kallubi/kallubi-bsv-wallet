@@ -1,23 +1,39 @@
 # Kallubi BSV Wallet
 
-Non-custodial **desktop** wallet for Bitcoin SV (BSV). Linux (AppImage) and Windows (portable ZIP).
+Non-custodial **desktop** wallet for Bitcoin SV (BSV).
 
-Independent project under the Kallubi name. **Not** affiliated with WhatsOnChain or the BSV Association.  
-Unofficial client. Test with a small amount first.
+**v1.0.3** — Linux AppImage · Windows portable EXE · macOS Apple Silicon (M1+)
 
-Site / downloads: [kallubi-bsv-explorer.de](https://kallubi-bsv-explorer.de/?tool=wallet)
+Independent project under the Kallubi name. **Not** affiliated with WhatsOnChain or the BSV Association. Unofficial client. Test with a small amount first.
 
-**Source application files** (`index.html`, `main.js`, `*.cjs`, `package.json`) will be published from a clean tree without seeds or encrypted wallets. This first commit is the public project shell.
+Downloads + SHA256: [kallubi-bsv-explorer.de](https://kallubi-bsv-explorer.de)
 
-## Features (current)
+## Changelog 1.0.3
+
+- Fix: `inner is not defined` on unlock / restore (storage)
+- HD scan: Electrum SV / Centi-style paths (receive + change)
+- Wallet switch no longer shows the last wallet’s balance
+- Scan runs once, then stops (no loop)
+- Fresh builds for Linux, Windows and Mac M1+
+
+## Features
 
 - BIP39 12-word seed, optional 13th-word passphrase
-- Kallubi derivation **or** BIP44 path (incl. Centi-style `m/44'/0'/0'/0/n` scan)
+- Kallubi derivation **or** BIP44 path (incl. Centi / Electrum-style scan)
 - Mainnet / testnet
 - Send / receive, QR, history
 - Multiple saved wallets (encrypted locally)
 - App-level hold (“timelock”) — **not** an on-chain lock
 - DE / EN UI
+- Broadcast via own node, lookups via WhatsOnChain
+
+## Verify downloads (SHA256)
+
+```
+31c373342ff9c6d647e0ec0aaa3cfe7879efddcfefb23b586080ec4c118ddcc0  Kallubi-BSV-Wallet-1.0.3-linux-x64.AppImage
+380e4e830d6bc516727310d5e75cd64bf1ac4921018af901aa72b6aa62162d72  Kallubi-BSV-Wallet-1.0.3-win-x64.exe
+f9f09ecac3215cc9165e655278c9a20d3ba6aad2ad8133ef898d5303c1c1b3fd  Kallubi-BSV-Wallet-1.0.3-mac-arm64.zip
+```
 
 ## Build from source
 
@@ -30,29 +46,23 @@ npm install
 npm start
 ```
 
-`npm start` runs Electron with `--no-sandbox` on some Linux setups (documented Electron SUID-sandbox issue).
-
-### Packages
+On some Linux setups Electron needs `--no-sandbox` (SUID sandbox).
 
 ```bash
-npm run pack:linux    # AppImage
-npm run pack:win      # Windows (on Windows)
+npm run pack:linux    # AppImage (Linux)
+npm run pack:win      # portable EXE (Windows)
+npm run pack:mac      # zip arm64 (macOS Apple Silicon)
 ```
 
 ## Network
 
-- WhatsOnChain REST (`api.whatsonchain.com`) for balance, UTXOs, broadcast, FX rate
-- No custom backend for keys
+- WhatsOnChain REST for balance, UTXOs, history, FX
+- Own node for broadcast when available
+- Keys never leave the device
 
-## Threat model (short)
+## Do not commit
 
-| Item | Where it lives |
-| --- | --- |
-| Seed / WIF | Encrypted on disk, unlocked with your wallet password |
-| 13th word | Part of BIP39 passphrase at derive time |
-| Prebuilt AppImage/ZIP | Convenience only — verify source if you need assurance |
-
-If you did not build the binary yourself, you are trusting the person who did.
+Seeds, `*.enc.json`, `wallets/`, `timelocks.json`, `node_modules/`, `dist/`.
 
 ## License
 
