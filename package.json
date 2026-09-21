@@ -4,11 +4,12 @@
   "description": "Kallubi BSV Wallet",
   "main": "main.js",
   "author": "Kallubi",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
     "pack:linux": "electron-builder --linux AppImage",
     "pack:win": "electron-builder --win portable",
+    "pack:mac": "electron-builder --mac zip --arm64",
     "start:linux-nosandbox": "electron . --no-sandbox"
   },
   "dependencies": {
@@ -41,19 +42,22 @@
       "!**/*.enc.json"
     ],
     "linux": {
-      "target": [
-        "AppImage"
-      ],
+      "target": ["AppImage"],
       "category": "Finance",
       "artifactName": "Kallubi-BSV-Wallet-${version}-linux-x64.${ext}",
       "icon": "logo.png"
     },
     "win": {
-      "target": [
-        "portable"
-      ],
+      "target": ["portable"],
       "artifactName": "Kallubi-BSV-Wallet-${version}-win-x64.${ext}",
       "icon": "logo.png"
+    },
+    "mac": {
+      "target": ["zip"],
+      "category": "public.app-category.finance",
+      "artifactName": "Kallubi-BSV-Wallet-${version}-mac-arm64.${ext}",
+      "icon": "build/icon.png",
+      "identity": null
     }
   }
 }
